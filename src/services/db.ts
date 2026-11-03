@@ -29,7 +29,7 @@ export function calculateVisitFee(patient: Patient | null): {
     return {
       amount: 200,
       daysPassed: null,
-      reason: 'New Patient Intake (₹200)'
+      reason: 'New Patient Registration'
     };
   }
 
@@ -41,14 +41,14 @@ export function calculateVisitFee(patient: Patient | null): {
     return {
       amount: 100,
       daysPassed: diffDays,
-      reason: `Follow-up (Day ${diffDays} of 30): ₹100`
+      reason: 'Follow-up Consultation (Within 30 Days)'
     };
   }
 
   return {
     amount: 200,
     daysPassed: diffDays,
-    reason: `Renewal (>30 Days passed, Day ${diffDays}): ₹200`
+    reason: 'Regular / Renewal Consultation'
   };
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { type ActiveTab, type UserSession } from './types';
 import { db, seedInitialDataIfNeeded } from './services/db';
 import { Navbar } from './components/Navbar';
@@ -26,22 +26,7 @@ export const App: React.FC = () => {
   const [pendingRemindersCount, setPendingRemindersCount] = useState<number>(0);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
 
-  // Initialize DB and Seed Data
-  useEffect(() => {
-    const initApp = async () => {
-      try {
-        await seedInitialDataIfNeeded();
-        await updateRemindersCount();
-      } catch (err) {
-        console.error('Failed to initialize database:', err);
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-    initApp();
-  }, [session]);
-
-  const updateRemindersCount = async () => {
+  const updateRemindersCount = useCallback(async () => {
     try {
       const allPatients = await db.patients.toArray();
       const now = Date.now();
@@ -59,7 +44,22 @@ export const App: React.FC = () => {
     } catch (e) {
       console.error('Error counting reminders:', e);
     }
-  };
+  }, []);
+
+  // Initialize DB and Seed Data
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        await seedInitialDataIfNeeded();
+        await updateRemindersCount();
+      } catch (err) {
+        console.error('Failed to initialize database:', err);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    initApp();
+  }, [session, updateRemindersCount]);
 
   const handleLoginSuccess = (email: string) => {
     const newSession: UserSession = {
@@ -76,12 +76,21 @@ export const App: React.FC = () => {
     setSession(null);
   };
 
+  // Instant zero-lag tab changer
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    // Refresh counts in background microtask without blocking tab UI
+    setTimeout(updateRemindersCount, 100);
+  };
+
   if (isInitializing && !showSplash) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="h-screen w-screen flex items-center justify-center bg-[#0F1316] text-white">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 border-4 border-clinic-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-bold text-slate-700">Loading Dwarka Clinic Portal...</p>
+          <div className="w-10 h-10 border-3 border-[#C5A028] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">
+            Loading Dwarka Clinic...
+          </p>
         </div>
       </div>
     );
@@ -94,19 +103,16 @@ export const App: React.FC = () => {
       {(!session || !session.isLoggedIn) ? (
         <Login onLoginSuccess={handleLoginSuccess} />
       ) : (
-        <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans">
+        <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#0F1316] text-slate-100 font-sans">
           <Navbar
             activeTab={activeTab}
-            onTabChange={(tab) => {
-              setActiveTab(tab);
-              updateRemindersCount();
-            }}
+            onTabChange={handleTabChange}
             onLogout={handleLogout}
             pendingRemindersCount={pendingRemindersCount}
           />
 
-          <main className="flex-1 pb-28 sm:pb-32 md:pb-12">
-            {activeTab === 'checkin' && <CheckIn />}
+          <main className="flex-1 overflow-y-auto pb-20 md:pb-6 px-3 pt-2">
+            {activeTab === 'checkin' && <CheckIn onCheckInSuccess={updateRemindersCount} />}
             {activeTab === 'reminders' && <Reminders />}
             {activeTab === 'reports' && <Reports />}
             {activeTab === 'logs' && <Logs />}
@@ -118,4 +124,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-

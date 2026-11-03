@@ -7,10 +7,15 @@ export default {
   theme: {
     extend: {
       colors: {
+        'clinic-bg': '#0F1316',
+        'clinic-card': '#171C21',
+        'clinic-elevated': '#1F262D',
+        'clinic-input': '#1A2027',
         'clinic-gold': '#C5A028',
         'clinic-gold-hover': '#B38F1E',
+        'clinic-gold-border': '#8C701B',
         'clinic-gold-light': '#FBF7EE',
-        'clinic-gold-border': '#E6D385',
+        'clinic-gold-soft': '#E6D385',
         'clinic-dark': '#12161A',
         'clinic-slate': '#1E252B',
         clinic: {

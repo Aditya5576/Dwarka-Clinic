@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   UserPlus, 
   Check, 
@@ -9,8 +9,9 @@ import {
   ArrowRight,
   ShieldCheck,
   AlertCircle,
-  Sparkles,
-  Phone
+  Phone,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { 
   type Patient, 
@@ -27,7 +28,13 @@ import {
 } from '../services/db';
 import { ReceiptModal } from './ReceiptModal';
 
-export const CheckIn: React.FC = () => {
+const TOP_HUBS = ['Jaysingpur', 'Purtiwadi', 'Shirol', 'Sangli', 'Miraj', 'Ichalkaranji'] as const;
+
+interface CheckInProps {
+  onCheckInSuccess?: () => void;
+}
+
+export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   // Phone search state
   const [phoneNumber, setPhoneNumber] = useState('');
   const [matchingPatients, setMatchingPatients] = useState<Patient[]>([]);
@@ -44,16 +51,30 @@ export const CheckIn: React.FC = () => {
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [shift, setShift] = useState<ShiftType>(detectCurrentShift());
 
+  // Dashboard Context Counters
+  const [todayVisitsCount, setTodayVisitsCount] = useState<number>(0);
+
   // Modal and submission state
   const [completedVisit, setCompletedVisit] = useState<Visit | null>(null);
   const [completedPatient, setCompletedPatient] = useState<Patient | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Update shift automatically periodically
+  const loadTodayStats = useCallback(async () => {
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const all = await db.visits.toArray();
+      const todayCount = all.filter(v => v.date.startsWith(todayStr)).length;
+      setTodayVisitsCount(todayCount);
+    } catch (err) {
+      console.error('Error loading today stats:', err);
+    }
+  }, []);
+
   useEffect(() => {
     setShift(detectCurrentShift());
-  }, []);
+    loadTodayStats();
+  }, [loadTodayStats]);
 
   // Search when phone number reaches 10 digits
   const handlePhoneChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,14 +99,11 @@ export const CheckIn: React.FC = () => {
     setHasSearched(true);
 
     if (results.length === 1) {
-      // Auto-select if only one member
       selectPatient(results[0]);
     } else if (results.length > 1) {
-      // Multiple family members: wait for receptionist choice
       setSelectedPatient(null);
       setIsRegisteringNew(false);
     } else {
-      // No match: open new patient intake
       startNewPatientIntake();
     }
   };
@@ -137,7 +155,6 @@ export const CheckIn: React.FC = () => {
       let patientRecord: Patient;
 
       if (selectedPatient) {
-        // Existing Patient: update lastVisitDate
         patientRecord = {
           ...selectedPatient,
           name: patientName.trim(),
@@ -146,7 +163,6 @@ export const CheckIn: React.FC = () => {
         };
         await db.patients.put(patientRecord);
       } else {
-        // New Patient: assign new sequential ID
         const newId = await getNextPatientId();
         patientRecord = {
           id: newId,
@@ -159,7 +175,6 @@ export const CheckIn: React.FC = () => {
         await db.patients.add(patientRecord);
       }
 
-      // Record Visit
       const newVisit: Visit = {
         id: `visit-${Date.now()}`,
         patientId: patientRecord.id,
@@ -173,9 +188,10 @@ export const CheckIn: React.FC = () => {
 
       await db.visits.add(newVisit);
 
-      // Trigger digital receipt
       setCompletedPatient(patientRecord);
       setCompletedVisit(newVisit);
+      await loadTodayStats();
+      onCheckInSuccess?.();
     } catch (err: any) {
       setFormError(err?.message || 'Failed to complete check-in. Please try again.');
     } finally {
@@ -197,46 +213,83 @@ export const CheckIn: React.FC = () => {
     setCompletedPatient(null);
     setFormError(null);
     setShift(detectCurrentShift());
+    loadTodayStats();
   };
 
-  return (
-    <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-3 sm:pt-6">
-      
-      {/* Top Banner */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-4 sm:mb-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-clinic-600 shrink-0" />
-              <span>Patient Check-In & Fee Collection</span>
-            </h2>
-            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
-              Rapid intake, 30-day automated fee calculation & WhatsApp slip
-            </p>
-          </div>
+  const remainingRegions = REGIONS_LIST.filter(r => !(TOP_HUBS as readonly string[]).includes(r));
 
-          {/* Current Shift Indicator */}
-          <div className="flex items-center space-x-1.5 self-start sm:self-auto bg-clinic-50 border border-clinic-200 px-3 py-1.5 rounded-xl text-xs font-bold text-clinic-800">
-            <Clock className="w-4 h-4 text-clinic-600 shrink-0" />
-            <span>Shift: {shift}</span>
+  return (
+    <div className="max-w-2xl mx-auto px-2 sm:px-4 py-3 sm:py-4 space-y-3.5">
+      
+      {/* Top Context Summary Strip */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        {/* Active Shift Card */}
+        <div className="bg-[#171C21] p-3 sm:p-3.5 rounded-xl border border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-[#C5A028]" />
+              <span>Current Shift</span>
+            </span>
             <button
               type="button"
               onClick={() => setShift(s => s === 'Morning' ? 'Evening' : 'Morning')}
-              className="ml-1 text-[11px] text-clinic-600 underline font-semibold hover:text-clinic-900 p-0.5"
+              className="text-[10px] text-[#C5A028] hover:text-[#E6D385] font-semibold underline flex items-center gap-1 cursor-pointer"
             >
-              Toggle
+              <RefreshCw className="w-2.5 h-2.5" /> Toggle
             </button>
+          </div>
+          <div className="mt-1.5">
+            <p className="text-sm sm:text-base font-bold text-white">
+              {shift} Shift
+            </p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400">
+              {shift === 'Morning' ? '11:00 AM – 2:00 PM' : '5:00 PM – 8:30 PM'}
+            </p>
+          </div>
+        </div>
+
+        {/* Today's Registrations Count */}
+        <div className="bg-[#171C21] p-3 sm:p-3.5 rounded-xl border border-slate-800 shadow-sm flex flex-col justify-between">
+          <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Today's Registrations</span>
+          </span>
+          <div className="mt-1.5 flex items-baseline gap-1.5">
+            <span className="text-lg sm:text-xl font-black text-white">
+              {todayVisitsCount}
+            </span>
+            <span className="text-[11px] text-slate-400 font-medium">
+              Patients Checked In
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Intake Card */}
+      <div className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-lg">
+        
+        <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-slate-800/80">
+          <div className="p-1.5 bg-[#C5A028]/10 text-[#C5A028] rounded-lg border border-[#8C701B]/30">
+            <UserPlus className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-sm sm:text-base font-bold text-white tracking-wide">
+              Patient Intake & Fee Collection
+            </h2>
+            <p className="text-[11px] text-slate-400">
+              Search by mobile number to detect past history & calculate consultation fees
+            </p>
           </div>
         </div>
 
         {/* Step 1: 10-Digit Phone Lookup */}
-        <div className="mt-4 sm:mt-5">
-          <label className="block text-[11px] sm:text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
             1. Enter 10-Digit Mobile Number
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <Phone className="w-4 h-4 text-clinic-600" />
+              <Phone className="w-4 h-4 text-[#C5A028]" />
             </div>
             <input
               type="tel"
@@ -246,67 +299,67 @@ export const CheckIn: React.FC = () => {
               value={phoneNumber}
               onChange={handlePhoneChange}
               placeholder="e.g. 9822012345"
-              className="w-full pl-10 pr-12 sm:pr-24 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-base sm:text-lg font-bold text-slate-900 focus:bg-white focus:border-clinic-500 focus:ring-4 focus:ring-clinic-500/10 outline-none transition placeholder:text-slate-400 placeholder:font-normal min-h-[48px]"
+              className="w-full pl-10 pr-24 py-3 bg-[#1A2027] border border-slate-700/80 rounded-xl text-base sm:text-lg font-bold text-white placeholder-slate-500 focus:border-[#C5A028] focus:ring-1 focus:ring-[#C5A028] outline-none transition min-h-[48px]"
             />
             {phoneNumber.length === 10 && (
               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="hidden sm:inline">10 Digits</span>
+                <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2 py-1 rounded-md border border-emerald-800/80 flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Valid</span>
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Family Member Cards If Multiple Matches */}
+        {/* Multiple Family Member Selection */}
         {hasSearched && matchingPatients.length > 1 && !selectedPatient && !isRegisteringNew && (
-          <div className="mt-4 p-3.5 sm:p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="mt-4 p-3.5 bg-[#1F262D] border border-slate-700/80 rounded-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2.5">
-              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-clinic-600 shrink-0" />
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-[#C5A028] shrink-0" />
                 Found {matchingPatients.length} Patients for this Mobile:
               </span>
               <button
                 type="button"
                 onClick={startNewPatientIntake}
-                className="text-xs font-bold text-clinic-600 hover:text-clinic-800 underline self-start sm:self-auto"
+                className="text-xs font-bold text-[#E6D385] hover:underline self-start sm:self-auto cursor-pointer"
               >
                 + Add New Family Member
               </button>
             </div>
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {matchingPatients.map((p) => {
                 const fee = calculateVisitFee(p);
                 return (
                   <div
                     key={p.id}
-                    className="p-3 bg-white border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:border-clinic-500 hover:shadow-sm transition"
+                    className="p-3 bg-[#171C21] border border-slate-700/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:border-[#8C701B] transition"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-clinic-700 bg-clinic-50 px-1.5 py-0.5 rounded shrink-0">
+                        <span className="font-mono text-xs font-bold text-[#E6D385] bg-[#C5A028]/15 px-1.5 py-0.5 rounded border border-[#8C701B]/40 shrink-0">
                           {p.id}
                         </span>
-                        <h4 className="font-bold text-slate-900 text-sm truncate">{p.name}</h4>
+                        <h4 className="font-bold text-white text-sm truncate">{p.name}</h4>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">
+                      <p className="text-xs text-slate-400 mt-0.5 truncate">
                         {p.city} • Last Visit: {new Date(p.lastVisitDate).toLocaleDateString('en-IN')}
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                    <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
+                      <span className={`text-xs font-bold px-2 py-1 rounded-full border ${
                         fee.amount === 100 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800' 
+                          : 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]/50'
                       }`}>
                         ₹{fee.amount}
                       </span>
                       <button
                         type="button"
                         onClick={() => selectPatient(p)}
-                        className="min-h-[44px] sm:min-h-0 px-4 py-2 sm:py-1.5 bg-clinic-600 hover:bg-clinic-700 text-white text-xs font-bold rounded-lg transition active:scale-95"
+                        className="px-3.5 py-1.5 bg-[#C5A028] hover:bg-[#B38F1E] text-black text-xs font-bold rounded-lg transition active:scale-95 cursor-pointer"
                       >
                         Select
                       </button>
@@ -321,14 +374,14 @@ export const CheckIn: React.FC = () => {
 
       {/* Step 2: Patient Registration & Fee Confirmation Form */}
       {(selectedPatient || isRegisteringNew) && (
-        <form onSubmit={handleSubmitCheckIn} className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200/80 space-y-4 sm:space-y-5 animate-in fade-in duration-200">
+        <form onSubmit={handleSubmitCheckIn} className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-lg space-y-4">
           
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 gap-2">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold truncate ${
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border truncate ${
                 selectedPatient 
-                  ? 'bg-clinic-50 text-clinic-700 border border-clinic-200' 
-                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  ? 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]/50' 
+                  : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
               }`}>
                 {selectedPatient ? `Existing Patient (${selectedPatient.id})` : 'New Patient Intake'}
               </span>
@@ -337,7 +390,7 @@ export const CheckIn: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedPatient(null)}
-                className="text-xs text-slate-500 hover:text-slate-800 underline shrink-0"
+                className="text-xs text-slate-400 hover:text-white underline shrink-0 cursor-pointer"
               >
                 Change Member
               </button>
@@ -345,15 +398,15 @@ export const CheckIn: React.FC = () => {
           </div>
 
           {formError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-rose-700 text-xs sm:text-sm">
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div className="p-3 bg-rose-950/60 border border-rose-800 rounded-xl flex items-start gap-2 text-rose-300 text-xs sm:text-sm">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-rose-400" />
               <span>{formError}</span>
             </div>
           )}
 
           {/* Patient Name */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
               Patient Full Name *
             </label>
             <input
@@ -362,73 +415,110 @@ export const CheckIn: React.FC = () => {
               value={patientName}
               onChange={(e) => setPatientName(e.target.value)}
               placeholder="e.g. Ramesh Balasaheb Patil"
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:border-clinic-500 focus:ring-2 focus:ring-clinic-500/20 outline-none transition"
+              className="w-full px-3.5 py-2.5 bg-[#1A2027] border border-slate-700 rounded-xl text-sm font-semibold text-white placeholder-slate-500 focus:border-[#C5A028] focus:ring-1 focus:ring-[#C5A028] outline-none transition"
             />
           </div>
 
-          {/* City / Region Selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" /> City / Region
-              </label>
-              <select
-                value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:border-clinic-500 outline-none transition"
-              >
-                {REGIONS_LIST.map((reg) => (
-                  <option key={reg} value={reg}>{reg}</option>
-                ))}
-              </select>
+          {/* City / Region Selection with Quick-Select Chips */}
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-[#C5A028]" /> Region / City
+            </label>
+
+            {/* Quick Hub Chips */}
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {TOP_HUBS.map((hub) => {
+                const isSelected = selectedCity === hub;
+                return (
+                  <button
+                    key={hub}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCity(hub);
+                      setCustomCity('');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#C5A028] text-black font-bold shadow-sm'
+                        : 'bg-[#1A2027] text-slate-300 border border-slate-700/80 hover:border-slate-500'
+                    }`}
+                  >
+                    {hub}
+                  </button>
+                );
+              })}
             </div>
 
-            {selectedCity === 'Other' && (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Specify Location
-                </label>
+            {/* Extended Region Dropdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+              <select
+                value={(TOP_HUBS as readonly string[]).includes(selectedCity) ? '' : selectedCity}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedCity(e.target.value);
+                  }
+                }}
+                className="w-full px-3 py-2 bg-[#1A2027] border border-slate-700 rounded-xl text-xs sm:text-sm font-medium text-white focus:border-[#C5A028] outline-none transition cursor-pointer"
+              >
+                <option value="" disabled>Other Taluka / Nearby Towns...</option>
+                {remainingRegions.map((reg) => (
+                  <option key={reg} value={reg} className="bg-[#171C21] text-white">
+                    {reg}
+                  </option>
+                ))}
+              </select>
+
+              {selectedCity === 'Other' && (
                 <input
                   type="text"
                   required
                   value={customCity}
                   onChange={(e) => setCustomCity(e.target.value)}
-                  placeholder="Enter village / city name"
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:border-clinic-500 outline-none transition"
+                  placeholder="Specify village or town name"
+                  className="w-full px-3 py-2 bg-[#1A2027] border border-[#8C701B] rounded-xl text-xs sm:text-sm font-semibold text-white placeholder-slate-500 focus:border-[#C5A028] outline-none transition"
                 />
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Fee Calculation Engine (SYSTEM-ENFORCED, READ-ONLY) */}
-          <div className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border-2 border-slate-200">
-            <div className="flex items-center justify-between mb-1.5 gap-2">
-              <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-clinic-600 shrink-0" />
+          {/* Automated Clinical Fee Engine (SYSTEM ENFORCED) */}
+          <div className="p-3.5 sm:p-4 bg-[#1F262D] rounded-xl border border-slate-700">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#C5A028] shrink-0" />
                 <span>Automated Consultation Fee</span>
               </span>
-              <span className="text-[11px] font-bold text-slate-500 shrink-0">System Enforced</span>
+              <span className="text-[10px] font-semibold text-slate-400">System Enforced</span>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="space-y-1">
-                <div className={`inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold border ${
+                {/* Clean Clinical Badge */}
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
                   feeInfo.amount === 100
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    : 'bg-amber-100 text-amber-800 border-amber-300'
+                    ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/80'
+                    : selectedPatient
+                      ? 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]'
+                      : 'bg-sky-950/70 text-sky-300 border-sky-800'
                 }`}>
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                  <span>{feeInfo.reason}</span>
+                  <span>
+                    {feeInfo.amount === 100
+                      ? 'Follow-up Consultation (Within 30 Days)'
+                      : selectedPatient
+                        ? 'Regular / Renewal Consultation'
+                        : 'New Patient Registration'}
+                  </span>
                 </div>
                 {selectedPatient && (
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-400">
                     Previous visit: {new Date(selectedPatient.lastVisitDate).toLocaleDateString('en-IN')}
                   </p>
                 )}
               </div>
 
               <div className="text-left sm:text-right">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                   ₹{feeInfo.amount}
                 </span>
               </div>
@@ -437,34 +527,34 @@ export const CheckIn: React.FC = () => {
 
           {/* Payment Mode Selection */}
           <div>
-            <label className="block text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1">
-              <CreditCard className="w-3.5 h-3.5 text-slate-400" /> Select Payment Mode
+            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1">
+              <CreditCard className="w-3.5 h-3.5 text-[#C5A028]" /> Select Payment Mode
             </label>
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setPaymentMode('Cash')}
-                className={`min-h-[48px] py-3 px-3 sm:px-4 rounded-xl border-2 font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 transition active:scale-95 ${
+                className={`min-h-[48px] py-2.5 px-3 rounded-xl border font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
                   paymentMode === 'Cash'
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                    : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-900/40'
+                    : 'bg-[#1A2027] border-slate-700 text-slate-300 hover:border-slate-500'
                 }`}
               >
                 <span>💵 Cash</span>
-                {paymentMode === 'Cash' && <Check className="w-4 h-4 ml-0.5 sm:ml-1" />}
+                {paymentMode === 'Cash' && <Check className="w-4 h-4" />}
               </button>
 
               <button
                 type="button"
                 onClick={() => setPaymentMode('UPI')}
-                className={`min-h-[48px] py-3 px-3 sm:px-4 rounded-xl border-2 font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 transition active:scale-95 ${
+                className={`min-h-[48px] py-2.5 px-3 rounded-xl border font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer ${
                   paymentMode === 'UPI'
-                    ? 'bg-clinic-600 border-clinic-600 text-white shadow-md shadow-clinic-600/20'
-                    : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                    ? 'bg-[#C5A028] text-black border-[#E6D385] shadow-md shadow-[#C5A028]/20'
+                    : 'bg-[#1A2027] border-slate-700 text-slate-300 hover:border-slate-500'
                 }`}
               >
                 <span>📱 UPI</span>
-                {paymentMode === 'UPI' && <Check className="w-4 h-4 ml-0.5 sm:ml-1" />}
+                {paymentMode === 'UPI' && <Check className="w-4 h-4 text-black" />}
               </button>
             </div>
           </div>
@@ -474,10 +564,10 @@ export const CheckIn: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full min-h-[52px] py-3.5 px-4 bg-gradient-to-r from-clinic-600 to-clinic-700 hover:from-clinic-700 hover:to-clinic-800 disabled:opacity-50 text-white font-black text-sm sm:text-base rounded-xl shadow-lg shadow-clinic-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98]"
+              className="w-full min-h-[50px] py-3 px-4 bg-gradient-to-r from-[#8C701B] via-[#C5A028] to-[#B38F1E] hover:from-[#C5A028] hover:to-[#E6D385] disabled:opacity-50 text-black font-black text-sm sm:text-base rounded-xl shadow-lg shadow-[#C5A028]/20 flex items-center justify-center gap-2 transition active:scale-[0.98] cursor-pointer"
             >
               <span>{isSubmitting ? 'Recording Visit...' : `Confirm Intake & Collect ₹${feeInfo.amount}`}</span>
-              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
             </button>
           </div>
 

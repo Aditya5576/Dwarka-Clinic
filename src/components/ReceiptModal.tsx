@@ -74,18 +74,18 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white w-[94vw] max-w-md max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-[#171C21] w-[94vw] max-w-md max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Top Bar */}
-        <div className="bg-clinic-600 text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between shrink-0">
+        <div className="bg-[#12161A] text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between border-b border-slate-800 shrink-0">
           <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-            <span className="font-bold text-xs sm:text-sm tracking-wide uppercase">Check-In Completed</span>
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span className="font-bold text-xs sm:text-sm tracking-wide uppercase text-slate-200">Check-In Completed</span>
           </div>
           <button 
             onClick={onClose}
-            className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -188,19 +188,19 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
         </div>
 
         {/* Action Buttons */}
-        <div className="bg-slate-50 p-3 sm:p-4 border-t border-slate-200 space-y-2 shrink-0">
+        <div className="bg-[#12161A] p-3 sm:p-4 border-t border-slate-800 space-y-2 shrink-0">
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handlePrint}
-              className="min-h-[44px] py-2.5 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center space-x-1.5 shadow-sm transition active:scale-95"
+              className="min-h-[44px] py-2.5 px-3 bg-[#1A2027] hover:bg-slate-800 border border-slate-700 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center space-x-1.5 shadow-sm transition active:scale-95 cursor-pointer"
             >
-              <Printer className="w-4 h-4 text-slate-600 shrink-0" />
+              <Printer className="w-4 h-4 text-[#C5A028] shrink-0" />
               <span>Print Slip</span>
             </button>
 
             <button
               onClick={handleSendWhatsApp}
-              className="min-h-[44px] py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center space-x-1.5 shadow-sm shadow-emerald-600/30 transition active:scale-95"
+              className="min-h-[44px] py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center space-x-1.5 shadow-sm shadow-emerald-900/30 transition active:scale-95 cursor-pointer"
             >
               <Share2 className="w-4 h-4 shrink-0" />
               <span>WhatsApp</span>
@@ -209,10 +209,10 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
 
           <button
             onClick={onClose}
-            className="w-full min-h-[44px] py-2.5 bg-clinic-600 hover:bg-clinic-700 text-white font-bold text-sm rounded-xl flex items-center justify-center space-x-1.5 shadow-md shadow-clinic-600/20 transition active:scale-95"
+            className="w-full min-h-[44px] py-2.5 bg-gradient-to-r from-[#8C701B] via-[#C5A028] to-[#B38F1E] hover:from-[#C5A028] hover:to-[#E6D385] text-black font-black text-sm rounded-xl flex items-center justify-center space-x-1.5 shadow-md shadow-[#C5A028]/20 transition active:scale-95 cursor-pointer"
           >
-            <span>Next Check-in</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>Next Check-In</span>
+            <ArrowRight className="w-4 h-4 text-black" />
           </button>
         </div>
 

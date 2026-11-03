@@ -3,9 +3,35 @@
 @tailwind utilities;
 
 @layer base {
-  html {
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
     -webkit-tap-highlight-color: transparent;
+    background-color: #0F1316;
+    color: #F1F5F9;
   }
+}
+
+/* Custom dark scrollbar for clinic portal */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0F1316;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2D3748;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8C701B;
 }
 
 /* Gold Gradient Utilities */
@@ -34,6 +60,8 @@
     width: 100%;
     margin: 0;
     padding: 16px;
+    background-color: white !important;
+    color: black !important;
     border: none !important;
     box-shadow: none !important;
   }
