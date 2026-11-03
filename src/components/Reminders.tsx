@@ -94,33 +94,33 @@ _Wish you good health & speedy recovery!_`;
   );
 
   return (
-    <div className="max-w-4xl mx-auto pb-24 md:pb-12 px-4 pt-4 sm:pt-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 pt-3 sm:pt-6">
       
       {/* Top Card */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 mb-5">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-4 sm:mb-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-amber-50 rounded-xl text-amber-600 border border-amber-200">
+              <div className="p-2 bg-amber-50 rounded-xl text-amber-600 border border-amber-200 shrink-0">
                 <Bell className="w-5 h-5" />
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
                 30-Day Follow-Up Reminders
               </h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
               Patients visited 25–30 days ago eligible for ₹100 follow-up before renewal fee applies.
             </p>
           </div>
 
-          <div className="self-start sm:self-auto px-3.5 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-800 flex items-center gap-1.5">
+          <div className="self-start sm:self-auto px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-800 flex items-center gap-1.5 shrink-0">
             <Clock className="w-4 h-4 text-amber-600" />
             <span>{reminders.length} Patients Due</span>
           </div>
         </div>
 
         {/* Search Filter */}
-        <div className="mt-4">
+        <div className="mt-3.5 sm:mt-4">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
             <input
@@ -128,7 +128,7 @@ _Wish you good health & speedy recovery!_`;
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name, phone or Patient ID..."
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:bg-white focus:border-clinic-500 outline-none transition"
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold focus:bg-white focus:border-clinic-500 outline-none transition min-h-[44px]"
             />
           </div>
         </div>
@@ -140,7 +140,7 @@ _Wish you good health & speedy recovery!_`;
           Loading reminder queue...
         </div>
       ) : filteredReminders.length === 0 ? (
-        <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center space-y-2">
+        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 text-center space-y-2">
           <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
           <h3 className="text-base font-bold text-slate-800">All Reminders Up To Date</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
@@ -152,39 +152,39 @@ _Wish you good health & speedy recovery!_`;
           {filteredReminders.map((item) => (
             <div
               key={item.patient.id}
-              className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 hover:border-clinic-400 shadow-sm transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-200 hover:border-clinic-400 shadow-sm transition flex flex-col sm:flex-row sm:items-center justify-between gap-3.5"
             >
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-clinic-700 bg-clinic-50 px-2 py-0.5 rounded border border-clinic-200">
+                  <span className="font-mono text-xs font-bold text-clinic-700 bg-clinic-50 px-2 py-0.5 rounded border border-clinic-200 shrink-0">
                     {item.patient.id}
                   </span>
-                  <h3 className="font-black text-slate-900 text-sm sm:text-base">
+                  <h3 className="font-black text-slate-900 text-sm sm:text-base truncate">
                     {item.patient.name}
                   </h3>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 font-medium">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 font-medium">
                   <span className="flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     {item.patient.phone}
                   </span>
                   <span className="flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     Visited: {new Date(item.patient.lastVisitDate).toLocaleDateString('en-IN')} (Day {item.diffDays})
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                <div className="inline-flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs font-bold text-amber-800 bg-amber-50/80 px-2.5 py-1 rounded-lg border border-amber-200/80">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <span>Subsidized ₹100 Rate expires on: {item.validUntil}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 sm:self-center border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
-                <div className="text-right sm:block hidden">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Remaining</span>
-                  <span className="text-lg font-black text-amber-600">
+              <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 pt-2.5 sm:pt-0 border-slate-100">
+                <div className="text-left sm:text-right shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Remaining</span>
+                  <span className="text-base sm:text-lg font-black text-amber-600">
                     {item.daysRemaining} Day{item.daysRemaining > 1 ? 's' : ''}
                   </span>
                 </div>
@@ -192,10 +192,10 @@ _Wish you good health & speedy recovery!_`;
                 <button
                   type="button"
                   onClick={() => handleSendWhatsAppReminder(item)}
-                  className="w-full sm:w-auto py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition active:scale-95"
+                  className="min-h-[44px] py-2.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition active:scale-95 shrink-0"
                 >
-                  <Share2 className="w-4 h-4" />
-                  <span>Send WhatsApp</span>
+                  <Share2 className="w-4 h-4 shrink-0" />
+                  <span>WhatsApp</span>
                 </button>
               </div>
             </div>

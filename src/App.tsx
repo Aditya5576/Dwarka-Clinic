@@ -101,7 +101,7 @@ export const App: React.FC = () => {
         pendingRemindersCount={pendingRemindersCount}
       />
 
-      <main className="flex-1">
+      <main className="flex-1 pb-28 sm:pb-32 md:pb-12">
         {activeTab === 'checkin' && <CheckIn />}
         {activeTab === 'reminders' && <Reminders />}
         {activeTab === 'reports' && <Reports />}

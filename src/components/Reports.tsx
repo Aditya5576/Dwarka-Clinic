@@ -62,21 +62,21 @@ export const Reports: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-24 md:pb-12 px-4 pt-4 sm:pt-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 pt-3 sm:pt-6">
       
       {/* Header and Controls */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 mb-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-4 sm:mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-clinic-50 rounded-xl text-clinic-600 border border-clinic-200">
+              <div className="p-2 bg-clinic-50 rounded-xl text-clinic-600 border border-clinic-200 shrink-0">
                 <BarChart3 className="w-5 h-5" />
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
                 Financial Reports & Shift Tallies
               </h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
               Real-time daily collection breakdown (Cash vs UPI) and CSV export
             </p>
           </div>
@@ -84,30 +84,30 @@ export const Reports: React.FC = () => {
           <button
             type="button"
             onClick={handleExportCSV}
-            className="py-2.5 px-4 bg-clinic-600 hover:bg-clinic-700 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-clinic-600/20 transition active:scale-95"
+            className="w-full sm:w-auto min-h-[44px] py-2.5 px-4 bg-clinic-600 hover:bg-clinic-700 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-clinic-600/20 transition active:scale-95"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4 shrink-0" />
             <span>Export All Records (CSV)</span>
           </button>
         </div>
 
         {/* Date Filter Bar */}
-        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-500" />
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Date Filter:</span>
+        <div className="mt-3.5 sm:mt-4 pt-3.5 sm:pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider shrink-0">Date Filter:</span>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm font-bold text-slate-900 outline-none focus:border-clinic-500"
+              className="flex-1 sm:flex-none px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm font-bold text-slate-900 outline-none focus:border-clinic-500 min-h-[40px]"
             />
           </div>
 
           <button
             type="button"
             onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-            className="text-xs font-bold text-clinic-600 hover:underline"
+            className="text-xs font-bold text-clinic-600 hover:underline self-start sm:self-auto py-1"
           >
             Reset to Today
           </button>
@@ -121,35 +121,35 @@ export const Reports: React.FC = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Patients</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 mb-5 sm:mb-6">
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm min-w-0">
+          <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Patients</span>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black text-slate-900">{totalVisitsCount}</span>
+            <span className="text-xl sm:text-2xl font-black text-slate-900">{totalVisitsCount}</span>
             <Users className="w-5 h-5 text-slate-400" />
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Cash Collection</span>
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm min-w-0">
+          <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Cash Collection</span>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black text-emerald-600">₹{grandCash}</span>
+            <span className="text-xl sm:text-2xl font-black text-emerald-600">₹{grandCash}</span>
             <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">💵</span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">UPI Collection</span>
+        <div className="bg-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm min-w-0">
+          <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block">UPI Collection</span>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black text-clinic-600">₹{grandUPI}</span>
+            <span className="text-xl sm:text-2xl font-black text-clinic-600">₹{grandUPI}</span>
             <span className="text-xs font-bold text-clinic-700 bg-clinic-50 px-1.5 py-0.5 rounded">📱</span>
           </div>
         </div>
 
-        <div className="bg-gradient-to-tr from-clinic-700 to-clinic-600 text-white p-4 rounded-2xl shadow-md shadow-clinic-600/20">
-          <span className="text-[11px] font-bold text-clinic-100 uppercase tracking-wider block">Grand Total</span>
+        <div className="bg-gradient-to-tr from-clinic-700 to-clinic-600 text-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl shadow-md shadow-clinic-600/20 min-w-0">
+          <span className="text-[10px] sm:text-[11px] font-bold text-clinic-100 uppercase tracking-wider block">Grand Total</span>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-2xl font-black">₹{grandTotal}</span>
+            <span className="text-xl sm:text-2xl font-black">₹{grandTotal}</span>
             <IndianRupee className="w-5 h-5 text-clinic-200" />
           </div>
         </div>
