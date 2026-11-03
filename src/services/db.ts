@@ -29,7 +29,7 @@ export function calculateVisitFee(patient: Patient | null): {
     return {
       amount: 200,
       daysPassed: null,
-      reason: 'New Patient Registration'
+      reason: 'Regular Rate (₹200)'
     };
   }
 
@@ -41,42 +41,88 @@ export function calculateVisitFee(patient: Patient | null): {
     return {
       amount: 100,
       daysPassed: diffDays,
-      reason: 'Follow-up Consultation (Within 30 Days)'
+      reason: 'Follow-up Rate (₹100)'
     };
   }
 
   return {
     amount: 200,
     daysPassed: diffDays,
-    reason: 'Regular / Renewal Consultation'
+    reason: 'Regular Rate (₹200)'
   };
 }
 
+export interface ShiftInfo {
+  shift: ShiftType;
+  label: string;
+  hoursText: string;
+  isActive: boolean;
+}
+
 /**
- * Automatic shift detection based on current local clock.
+ * Automatic shift determination based on clinic hours:
  * Morning Shift: 11:00 AM – 2:00 PM (11:00 - 14:00)
  * Evening Shift: 5:00 PM – 8:30 PM (17:00 - 20:30)
- * Nearest fallback outside exact hours:
- * < 15:00 (3 PM) -> Morning
- * >= 15:00 -> Evening
+ * Outside hours:
+ * - Before 11:00 AM: Next: Morning Shift
+ * - Between 2:00 PM & 5:00 PM: Next: Evening Shift
+ * - After 8:30 PM: Next: Morning Shift
  */
-export function detectCurrentShift(date: Date = new Date()): ShiftType {
+export function getAutomaticShiftInfo(date: Date = new Date()): ShiftInfo {
   const hours = date.getHours();
   const minutes = date.getMinutes();
   const timeInMinutes = hours * 60 + minutes;
 
   // 11:00 AM = 660 mins, 2:00 PM = 840 mins
   if (timeInMinutes >= 660 && timeInMinutes <= 840) {
-    return 'Morning';
+    return {
+      shift: 'Morning',
+      label: 'Morning Shift',
+      hoursText: '11:00 AM – 2:00 PM',
+      isActive: true
+    };
   }
 
   // 5:00 PM = 1020 mins, 8:30 PM = 1230 mins
   if (timeInMinutes >= 1020 && timeInMinutes <= 1230) {
-    return 'Evening';
+    return {
+      shift: 'Evening',
+      label: 'Evening Shift',
+      hoursText: '5:00 PM – 8:30 PM',
+      isActive: true
+    };
   }
 
-  // Default fallback to nearest shift
-  return hours < 15 ? 'Morning' : 'Evening';
+  // Outside active hours:
+  if (timeInMinutes < 660) {
+    return {
+      shift: 'Morning',
+      label: 'Next: Morning Shift',
+      hoursText: '11:00 AM – 2:00 PM',
+      isActive: false
+    };
+  } else if (timeInMinutes < 1020) {
+    return {
+      shift: 'Evening',
+      label: 'Next: Evening Shift',
+      hoursText: '5:00 PM – 8:30 PM',
+      isActive: false
+    };
+  } else {
+    return {
+      shift: 'Morning',
+      label: 'Next: Morning Shift',
+      hoursText: '11:00 AM – 2:00 PM',
+      isActive: false
+    };
+  }
+}
+
+/**
+ * Automatic shift detection based on current local clock.
+ */
+export function detectCurrentShift(date: Date = new Date()): ShiftType {
+  return getAutomaticShiftInfo(date).shift;
 }
 
 /**
@@ -182,4 +228,3 @@ export async function seedInitialDataIfNeeded(): Promise<void> {
     await db.visits.bulkAdd(seedVisits);
   });
 }
-

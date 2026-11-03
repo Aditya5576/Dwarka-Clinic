@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   AlertCircle,
   Phone,
-  RefreshCw,
   Sparkles,
   Printer,
   History,
@@ -20,13 +19,13 @@ import {
   type Patient, 
   type Visit, 
   type PaymentMode, 
-  type ShiftType, 
   REGIONS_LIST 
 } from '../types';
 import { 
   db, 
   calculateVisitFee, 
-  detectCurrentShift, 
+  getAutomaticShiftInfo,
+  type ShiftInfo,
   getNextPatientId 
 } from '../services/db';
 import { ReceiptModal } from './ReceiptModal';
@@ -57,7 +56,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   const [selectedCity, setSelectedCity] = useState<string>('Jaysingpur');
   const [customCity, setCustomCity] = useState('');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
-  const [shift, setShift] = useState<ShiftType>(detectCurrentShift());
+  const [shiftInfo, setShiftInfo] = useState<ShiftInfo>(getAutomaticShiftInfo());
 
   // Dashboard Context Counters & Recents
   const [todayVisitsCount, setTodayVisitsCount] = useState<number>(0);
@@ -70,6 +69,14 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Periodically re-sync shift based on wall clock
+  useEffect(() => {
+    const updateShift = () => setShiftInfo(getAutomaticShiftInfo());
+    updateShift();
+    const interval = setInterval(updateShift, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const loadTodayStats = useCallback(async () => {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
@@ -79,7 +86,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
       setTodayVisitsCount(todayVisits.length);
 
       // Current shift revenue
-      const currentShiftVisits = todayVisits.filter(v => v.shift === shift);
+      const currentShiftVisits = todayVisits.filter(v => v.shift === shiftInfo.shift);
       const currentShiftRev = currentShiftVisits.reduce((acc, v) => acc + v.amount, 0);
       setShiftRevenue(currentShiftRev);
 
@@ -98,10 +105,9 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
     } catch (err) {
       console.error('Error loading today stats:', err);
     }
-  }, [shift]);
+  }, [shiftInfo.shift]);
 
   useEffect(() => {
-    setShift(detectCurrentShift());
     loadTodayStats();
   }, [loadTodayStats]);
 
@@ -212,7 +218,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
         date: now,
         amount: feeInfo.amount,
         mode: paymentMode,
-        shift: shift
+        shift: shiftInfo.shift
       };
 
       await db.visits.add(newVisit);
@@ -241,7 +247,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
     setCompletedVisit(null);
     setCompletedPatient(null);
     setFormError(null);
-    setShift(detectCurrentShift());
+    setShiftInfo(getAutomaticShiftInfo());
     loadTodayStats();
   };
 
@@ -255,29 +261,30 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   return (
     <div className="max-w-2xl mx-auto px-2 sm:px-4 py-3 sm:py-4 space-y-4">
       
-      {/* 1. Live Shift & Registration Banner */}
+      {/* 1. Live Shift & Registration Banner (Automatic Clock Detection) */}
       <div className="bg-[#171C21] p-3.5 sm:p-4 rounded-2xl border border-slate-800 shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           
-          {/* Shift Details */}
+          {/* Shift Details (Read-only Automatic Window Indicator) */}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="p-1 bg-[#C5A028]/15 rounded-md text-[#C5A028] border border-[#8C701B]/40">
                 <Clock className="w-3.5 h-3.5" />
               </span>
               <span className="text-xs font-bold text-white font-brand tracking-wide">
-                {shift} Shift Operations
+                {shiftInfo.label} Operations
               </span>
-              <button
-                type="button"
-                onClick={() => setShift(s => s === 'Morning' ? 'Evening' : 'Morning')}
-                className="text-[10px] text-[#C5A028] hover:text-[#E6D385] font-semibold underline flex items-center gap-1 cursor-pointer ml-1"
-              >
-                <RefreshCw className="w-2.5 h-2.5" /> Toggle
-              </button>
+              <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                shiftInfo.isActive 
+                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800' 
+                  : 'bg-amber-950/60 text-amber-300 border-amber-800'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${shiftInfo.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span>{shiftInfo.isActive ? 'Active Window' : 'Off-Hours'}</span>
+              </span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Hours: {shift === 'Morning' ? '11:00 AM – 2:00 PM' : '5:00 PM – 8:30 PM'}
+              Hours: {shiftInfo.hoursText}
             </p>
           </div>
 
@@ -380,7 +387,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-[#E6D385] bg-[#C5A028]/15 px-1.5 py-0.5 rounded border border-[#8C701B]/40 shrink-0">
+                        <span className="font-mono text-xs font-bold text-[#E6D385] bg-[#C5A028]/15 px-1.5 py-0.5 rounded border border-[#8C701B]/40 shrink-0 whitespace-nowrap">
                           {p.id}
                         </span>
                         <h4 className="font-bold text-white text-sm truncate">{p.name}</h4>
@@ -391,7 +398,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
-                      <span className={`text-xs font-bold px-2 py-1 rounded-full border ${
+                      <span className={`text-xs font-bold px-2 py-1 rounded-full border whitespace-nowrap ${
                         fee.amount === 100 
                           ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800' 
                           : 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]/50'
@@ -401,7 +408,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                       <button
                         type="button"
                         onClick={() => selectPatient(p)}
-                        className="px-3.5 py-1.5 bg-[#C5A028] hover:bg-[#B38F1E] text-black text-xs font-bold rounded-lg transition active:scale-95 cursor-pointer"
+                        className="px-3.5 py-1.5 bg-[#C5A028] hover:bg-[#B38F1E] text-black text-xs font-bold rounded-lg transition active:scale-95 cursor-pointer whitespace-nowrap"
                       >
                         Select
                       </button>
@@ -420,7 +427,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
           
           <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border truncate ${
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border whitespace-nowrap truncate ${
                 selectedPatient 
                   ? 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]/50' 
                   : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
@@ -479,7 +486,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                       setSelectedCity(hub);
                       setCustomCity('');
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer whitespace-nowrap ${
                       isSelected
                         ? 'bg-[#C5A028] text-black font-bold shadow-sm'
                         : 'bg-[#1A2027] text-slate-300 border border-slate-700/80 hover:border-slate-500'
@@ -536,7 +543,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="space-y-1">
                 {/* Clean Clinical Badge */}
-                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${
                   feeInfo.amount === 100
                     ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/80'
                     : selectedPatient
@@ -544,13 +551,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                       : 'bg-sky-950/70 text-sky-300 border-sky-800'
                 }`}>
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    {feeInfo.amount === 100
-                      ? 'Follow-up Consultation (Within 30 Days)'
-                      : selectedPatient
-                        ? 'Regular / Renewal Consultation'
-                        : 'New Patient Registration'}
-                  </span>
+                  <span>{feeInfo.reason}</span>
                 </div>
                 {selectedPatient && (
                   <p className="text-[11px] text-slate-400">
@@ -650,7 +651,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] font-bold text-[#E6D385] bg-[#C5A028]/15 px-1.5 py-0.5 rounded border border-[#8C701B]/40 shrink-0">
+                      <span className="font-mono text-[11px] font-bold text-[#E6D385] bg-[#C5A028]/15 px-1.5 py-0.5 rounded border border-[#8C701B]/40 shrink-0 whitespace-nowrap">
                         {patient.id}
                       </span>
                       <h4 className="font-bold text-white text-xs sm:text-sm truncate">
@@ -665,7 +666,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                   <button
                     type="button"
                     onClick={() => handleReprintSlip({ visit, patient })}
-                    className="px-2.5 py-1.5 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shrink-0 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shrink-0 cursor-pointer whitespace-nowrap"
                     title="Reprint or Share Slip"
                   >
                     <Printer className="w-3.5 h-3.5 text-[#C5A028]" />

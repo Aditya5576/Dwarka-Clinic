@@ -62,7 +62,6 @@ Lane No. 8, Opp. Terapanthi Bhavan, Purtiwadi, Jaysingpur
 --------------------------------
 *Next Follow-Up Rate (₹100) Valid Until:*
 *${formattedValidUntil}* (Next 30 Days)
-(Visits after ${formattedValidUntil} will be renewed at ₹200)
 
 _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
 
@@ -131,7 +130,7 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
               <span className="text-[#E6D385] flex items-center gap-1.5 font-medium">
                 <User className="w-3.5 h-3.5 text-[#C5A028]" /> Patient ID
               </span>
-              <span className="font-mono font-bold text-[#E6D385] bg-[#C5A028]/15 px-2 py-0.5 rounded border border-[#8C701B]/50">
+              <span className="font-mono font-bold text-[#E6D385] bg-[#C5A028]/15 px-2 py-0.5 rounded border border-[#8C701B]/50 whitespace-nowrap">
                 {patient.id}
               </span>
             </div>
@@ -145,7 +144,7 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
               <span className="text-[#E6D385] flex items-center gap-1.5 font-medium">
                 <Phone className="w-3.5 h-3.5 text-slate-400" /> Phone Number
               </span>
-              <span className="font-mono font-semibold text-white">{patient.phone}</span>
+              <span className="font-mono font-semibold text-white whitespace-nowrap">{patient.phone}</span>
             </div>
 
             <div className="flex justify-between items-center px-3 py-2">
@@ -159,14 +158,14 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
               <span className="text-[#E6D385] flex items-center gap-1.5 font-medium">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" /> Visit Date
               </span>
-              <span className="font-semibold text-white">{formattedDate} ({formattedTime})</span>
+              <span className="font-semibold text-white whitespace-nowrap">{formattedDate} ({formattedTime})</span>
             </div>
 
             <div className="flex justify-between items-center px-3 py-2">
               <span className="text-[#E6D385] flex items-center gap-1.5 font-medium">
                 <Clock className="w-3.5 h-3.5 text-slate-400" /> Shift
               </span>
-              <span className="font-semibold text-white">{visit.shift} Shift</span>
+              <span className="font-semibold text-white whitespace-nowrap">{visit.shift} Shift</span>
             </div>
 
           </div>
@@ -176,7 +175,7 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
             <span className="text-white font-bold text-xs sm:text-sm flex items-center gap-1.5">
               <CreditCard className="w-4 h-4 text-[#C5A028]" /> Amount Paid ({visit.mode})
             </span>
-            <span className="text-xl sm:text-2xl font-black text-[#C5A028] tracking-tight">
+            <span className="text-xl sm:text-2xl font-black text-[#C5A028] tracking-tight whitespace-nowrap">
               ₹{visit.amount}
             </span>
           </div>
@@ -186,14 +185,14 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
             <div className="flex items-start space-x-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs font-semibold text-emerald-300">
+                <p className="text-xs font-semibold text-emerald-300 whitespace-nowrap">
                   Follow-Up Rate (₹100) Valid Until:
                 </p>
-                <p className="text-sm font-black text-emerald-200 mt-0.5 tracking-wide">
+                <p className="text-sm font-black text-emerald-200 mt-0.5 tracking-wide whitespace-nowrap">
                   {formattedValidUntil}
                 </p>
                 <p className="text-[11px] text-emerald-400/80 mt-0.5">
-                  Visits within 30 days are ₹100. Subsequent visits renew at ₹200.
+                  Valid 30 days. Subsequent visits renew at ₹200.
                 </p>
               </div>
             </div>
@@ -206,7 +205,7 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handlePrint}
-              className="min-h-[44px] py-2.5 px-3 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 shadow-sm transition active:scale-95 cursor-pointer"
+              className="min-h-[44px] py-2.5 px-3 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap"
             >
               <Printer className="w-4 h-4 text-[#C5A028] shrink-0" />
               <span>Print Slip</span>
@@ -214,7 +213,7 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
 
             <button
               onClick={handleSendWhatsApp}
-              className="min-h-[44px] py-2.5 px-3 bg-[#059669] hover:bg-[#047857] text-white font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-950/40 transition active:scale-95 cursor-pointer"
+              className="min-h-[44px] py-2.5 px-3 bg-[#059669] hover:bg-[#047857] text-white font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-950/40 transition active:scale-95 cursor-pointer whitespace-nowrap"
             >
               <Share2 className="w-4 h-4 shrink-0" />
               <span>WhatsApp</span>
@@ -223,7 +222,7 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
 
           <button
             onClick={onClose}
-            className="w-full min-h-[44px] py-2.5 bg-gradient-to-r from-[#C5A028] to-[#D4AF37] hover:brightness-110 text-[#12161A] font-bold rounded-xl text-sm flex items-center justify-center space-x-1.5 shadow-lg shadow-[#C5A028]/20 transition active:scale-95 cursor-pointer"
+            className="w-full min-h-[44px] py-2.5 bg-gradient-to-r from-[#C5A028] to-[#D4AF37] hover:brightness-110 text-[#12161A] font-bold rounded-xl text-sm flex items-center justify-center space-x-1.5 shadow-lg shadow-[#C5A028]/20 transition active:scale-95 cursor-pointer whitespace-nowrap"
           >
             <span>Next Check-In</span>
             <ArrowRight className="w-4 h-4 text-[#12161A]" />

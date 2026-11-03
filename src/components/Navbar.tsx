@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   UserCheck, 
   BarChart3, 
   ClipboardList, 
   Bell, 
-  Wifi, 
-  WifiOff, 
   LogOut
 } from 'lucide-react';
 import { type ActiveTab } from '../types';
@@ -23,21 +21,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   pendingRemindersCount = 0
 }) => {
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
   // Ordered: Check-In -> Reports -> Logs -> Reminders
   const navItems: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }[] = [
     { id: 'checkin', label: 'Check-In', icon: UserCheck },
@@ -81,27 +64,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="hidden xs:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#1A2027] border border-slate-700/80 text-slate-300">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span className="truncate">Reception Desk</span>
-            </div>
-
-            {/* Network Badge */}
-            <div 
-              className={`flex items-center space-x-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold border ${
-                isOnline 
-                  ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800/60' 
-                  : 'bg-amber-950/60 text-amber-300 border-amber-800/80 animate-pulse'
-              }`}
-            >
-              {isOnline ? (
-                <>
-                  <Wifi className="w-3 h-3 text-emerald-400" />
-                  <span className="hidden sm:inline">Online</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 text-amber-400" />
-                  <span>Offline</span>
-                </>
-              )}
             </div>
 
             {/* Desktop Navigation Links */}
