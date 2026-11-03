@@ -40,3 +40,4 @@ Dr. Baldawa's Dwarka Clinic reception desk operates in an environment where netw
   - `retryCount`
 - When network reconnects, process mutations sequentially in FIFO order.
 - On conflict, clinic desk local state takes precedence for receptionist notes; server provides authoritative sequence numbers if applicable.
+

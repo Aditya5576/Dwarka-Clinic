@@ -63,3 +63,26 @@
 - **Consequences:**
   - Standardized progressive disclosure: only skill names and descriptions are injected until activated.
   - Customizations are committed to version control so any team member or laptop checkout inherits them automatically.
+
+---
+
+## ADR-005: Milestone 1 Architecture — Client-Side PWA, System-Enforced Fee Engine & Multi-Laptop Sync
+
+- **Status:** Accepted
+- **Context:**
+  Dr. Baldawa's Dwarka Clinic in Jaysingpur requires high-throughput patient intake, zero monthly cloud database subscriptions (Zero-Cost Constraint), offline resilience against power/broadband disruptions, and seamless multi-laptop synchronization between clinic and home.
+- **Decision:**
+  1. **Persistence:** Use Dexie.js over browser IndexedDB for structured, ACID-compliant local transactions with indexes on `id`, `phone`, `name`, `city`, and `lastVisitDate`.
+  2. **Fee Calculation:** Enforce consultation fees strictly in application logic (read-only):
+     - New patients or `lastVisitDate > 30` days: ₹200.
+     - Existing patients with `lastVisitDate <= 30` days: ₹100.
+     - Submission automatically updates `lastVisitDate`, resetting the 30-day subsidized follow-up period.
+  3. **PWA & Offline:** Employ `vite-plugin-pwa` generating a standalone manifest, theme color `#0284c7`, and Workbox precache service worker.
+  4. **Multi-Laptop Sync:** Provide lightweight, cross-platform git automation scripts (`sync-push.bat`/`sh`, `sync-pull.bat`/`sh`) using `git pull --rebase origin main` to prevent divergent branches when switching machines.
+- **Consequences:**
+  - Zero server/database hosting costs.
+  - Sub-16ms receptionist input latency with instant optimistic UI.
+  - No human fee manipulation or billing discrepancies.
+  - Seamless handover across multiple devices with simple 1-click sync scripts.
+
+

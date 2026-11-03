@@ -75,3 +75,4 @@ For multi-file changes or state updates, emit this checkpoint before executing:
 - **Risk Assessment:** [Low / Med / High]
 - **Verification Validator:** [Type check / Unit test / Build check]
 ```
+

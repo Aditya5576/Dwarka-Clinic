@@ -29,3 +29,4 @@ Dr. Baldawa's Dwarka Clinic handles confidential medical records, diagnoses, and
 ## 3. Input Sanitization & Boundary Defense
 - **XSS Prevention:** Always render patient notes and inputs through React's native JSX escaping. Never use `dangerouslySetInnerHTML`.
 - **Sanitized Search Queries:** Sanitize phone numbers and patient names to strip control characters before querying IndexedDB.
+

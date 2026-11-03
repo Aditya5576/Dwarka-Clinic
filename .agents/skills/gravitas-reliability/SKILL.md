@@ -34,3 +34,4 @@ Before making multi-file modifications, declare:
 - **Risk Assessment:** [Low / Med / High]
 - **Verification Validator:** [Type check / Test / Build]
 ```
+

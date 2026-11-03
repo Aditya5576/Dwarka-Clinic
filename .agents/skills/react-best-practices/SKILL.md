@@ -32,3 +32,4 @@ The clinic receptionist enters hundreds of patient details per day. Keystroke la
   - Use `useCallback` when passing callbacks to memoized list items (`React.memo(QueueCard)`).
 - **Custom Hook Encapsulation:**
   - Encapsulate storage logic into clean hooks (`usePatientQueue()`, `usePatientSearch(query)`, `useOfflineSync()`).
+

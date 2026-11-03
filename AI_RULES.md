@@ -51,3 +51,4 @@ Before modifying code to address a bug or test failure, you must complete four p
    - Local storage (IndexedDB) must store structured clinical data predictably and securely.
 4. **Fail Loudly & Gracefully:** Catch errors at appropriate architectural boundaries; present clear receptionist-facing alerts instead of silent failures or application crashes.
 5. **Git Hygiene:** Conventional commits (`feat`, `fix`, `refactor`, `test`, `chore`, `docs`).
+

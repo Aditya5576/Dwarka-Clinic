@@ -31,3 +31,4 @@
 - Architecture & Active Skills: [AI_BRAIN.md](file:///c:/Users/adity/Desktop/ADI/Dwarka%20Clinic%20Application/AI_BRAIN.md)
 - Architectural Decision Records: [DECISIONS.md](file:///c:/Users/adity/Desktop/ADI/Dwarka%20Clinic%20Application/DECISIONS.md)
 - Active Workspace Skills: `.agents/skills/`
+

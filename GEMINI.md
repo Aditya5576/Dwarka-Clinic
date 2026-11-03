@@ -11,3 +11,4 @@ This project operates under the Dr. Baldawa's Dwarka Clinic (Jaysingpur) AI Oper
    - [AI_RULES.md](file:///c:/Users/adity/Desktop/ADI/Dwarka%20Clinic%20Application/AI_RULES.md) (Engineering standards & safety)
    - [AI_BRAIN.md](file:///c:/Users/adity/Desktop/ADI/Dwarka%20Clinic%20Application/AI_BRAIN.md) (Architecture & active skills)
    - [DECISIONS.md](file:///c:/Users/adity/Desktop/ADI/Dwarka%20Clinic%20Application/DECISIONS.md) (Architecture decision records)
+
