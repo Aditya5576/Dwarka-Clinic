@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   UserCheck, 
   BarChart3, 
   ClipboardList, 
   Bell, 
-  Wifi, 
-  WifiOff, 
   LogOut
 } from 'lucide-react';
 import { type ActiveTab } from '../types';
@@ -23,21 +21,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   pendingRemindersCount = 0
 }) => {
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
   // Ordered: Check-In -> Reports -> Logs -> Reminders
   const navItems: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }[] = [
     { id: 'checkin', label: 'Check-In', icon: UserCheck },
@@ -49,8 +32,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       {/* Elevated Top Header */}
-      <header className="sticky top-0 z-40 h-16 sm:h-18 px-3 sm:px-5 backdrop-blur-md bg-[#0F1316]/95 border-b border-[#8C701B]/30 shadow-lg flex items-center justify-between">
-        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-2">
+      <header className="sticky top-0 z-40 h-16 sm:h-18 px-3 sm:px-6 backdrop-blur-md bg-[#0F1316]/95 border-b border-[#8C701B]/30 shadow-lg flex items-center justify-between">
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-3">
           
           {/* Logo & Brand Typography */}
           <div className="flex items-center space-x-2.5 sm:space-x-3.5 min-w-0">
@@ -75,33 +58,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Right Action Bar */}
-          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          <div className="flex items-center space-x-2.5 sm:space-x-4 shrink-0">
             
             {/* Receptionist Indicator Pill */}
-            <div className="hidden xs:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#1A2027] border border-slate-700/80 text-slate-300">
+            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#1A2027] border border-slate-700/80 text-slate-300 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <span className="truncate">Reception Desk</span>
-            </div>
-
-            {/* Network Badge */}
-            <div 
-              className={`flex items-center space-x-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold border ${
-                isOnline 
-                  ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800/60' 
-                  : 'bg-amber-950/60 text-amber-300 border-amber-800/80 animate-pulse'
-              }`}
-            >
-              {isOnline ? (
-                <>
-                  <Wifi className="w-3 h-3 text-emerald-400" />
-                  <span className="hidden sm:inline">Online</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 text-amber-400" />
-                  <span>Offline</span>
-                </>
-              )}
+              <span className="hidden xs:inline">Reception Desk</span>
+              <span className="xs:hidden">Reception</span>
             </div>
 
             {/* Desktop Navigation Links */}
@@ -113,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     key={item.id}
                     onClick={() => onTabChange(item.id)}
-                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all relative cursor-pointer ${
+                    className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all relative cursor-pointer ${
                       isActive
                         ? 'bg-[#C5A028]/20 text-[#E6D385] border border-[#8C701B]/50 shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -135,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onLogout}
               title="Logout Receptionist"
-              className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40 cursor-pointer"
+              className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40 cursor-pointer"
             >
               <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
@@ -153,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`flex flex-col items-center justify-center py-1.5 px-0.5 min-w-0 rounded-xl transition-colors relative cursor-pointer ${
+                className={`flex flex-col items-center justify-center py-2 px-0.5 min-w-0 rounded-xl transition-colors relative cursor-pointer ${
                   isActive
                     ? 'text-[#E6D385] font-bold bg-[#C5A028]/15 border border-[#8C701B]/40'
                     : 'text-slate-400 hover:text-slate-200'

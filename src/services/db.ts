@@ -1,5 +1,9 @@
 import Dexie, { type Table } from 'dexie';
-import { type Patient, type Visit, type ShiftType, type VisitAmount } from '../types';
+import { type Patient, type Visit, type VisitAmount } from '../types';
+import { evaluateShiftStatus, detectVisitShift } from './shift';
+
+export { evaluateShiftStatus, detectVisitShift };
+export const detectCurrentShift = detectVisitShift;
 
 export class DwarkaClinicDB extends Dexie {
   patients!: Table<Patient, string>;
@@ -50,33 +54,6 @@ export function calculateVisitFee(patient: Patient | null): {
     daysPassed: diffDays,
     reason: 'Regular / Renewal Consultation'
   };
-}
-
-/**
- * Automatic shift detection based on current local clock.
- * Morning Shift: 11:00 AM – 2:00 PM (11:00 - 14:00)
- * Evening Shift: 5:00 PM – 8:30 PM (17:00 - 20:30)
- * Nearest fallback outside exact hours:
- * < 15:00 (3 PM) -> Morning
- * >= 15:00 -> Evening
- */
-export function detectCurrentShift(date: Date = new Date()): ShiftType {
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const timeInMinutes = hours * 60 + minutes;
-
-  // 11:00 AM = 660 mins, 2:00 PM = 840 mins
-  if (timeInMinutes >= 660 && timeInMinutes <= 840) {
-    return 'Morning';
-  }
-
-  // 5:00 PM = 1020 mins, 8:30 PM = 1230 mins
-  if (timeInMinutes >= 1020 && timeInMinutes <= 1230) {
-    return 'Evening';
-  }
-
-  // Default fallback to nearest shift
-  return hours < 15 ? 'Morning' : 'Evening';
 }
 
 /**
