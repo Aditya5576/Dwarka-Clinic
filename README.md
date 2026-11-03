@@ -7,17 +7,36 @@
 
 ## 1. Multi-Laptop Git Workflow
 
-When switching between development laptops (e.g., Clinic Desk Laptop vs. Home/Personal Laptop), use the dual-sync scripts to avoid merge conflicts and branch drift:
+This project is configured for continuous synchronization between laptops (e.g., Clinic Desk Laptop & Personal/Doctor's Laptop).
 
-### Before Starting Work (On Current Laptop)
-Pull the latest code from `origin main`:
-- **Windows (Double click or terminal):** `.\sync-pull.bat`
-- **Linux/macOS:** `./sync-pull.sh`
+### Initial Setup on Second Laptop (Personal Laptop)
+Run these commands once on the second machine:
+```bash
+# 1. Clone repository from GitHub
+git clone https://github.com/Aditya5576/Dwarka-Clinic.git
 
-### After Finishing Work (Before Switching Laptops)
-Stage, commit, and push your work:
-- **Windows:** `.\sync-push.bat "feat: your change summary"` (or simply run without arguments)
-- **Linux/macOS:** `./sync-push.sh "feat: your change summary"`
+# 2. Enter workspace directory
+cd Dwarka-Clinic
+
+# 3. Install dependencies
+npm install
+
+# 4. Start local development
+npm run dev
+```
+
+### Daily Dual-Laptop Handover Workflow
+Use the provided one-click sync scripts to avoid merge conflicts:
+
+#### 1. Before Starting Work (On Any Laptop)
+Fetch and rebase the latest commits from `origin main`:
+- **Windows:** Double-click or run `.\sync-pull.bat`
+- **Linux/macOS:** Run `./sync-pull.sh`
+
+#### 2. After Finishing Work (Before Switching Laptops)
+Stage, commit, and push your changes to GitHub:
+- **Windows:** Double-click or run `.\sync-push.bat "your commit message"`
+- **Linux/macOS:** Run `./sync-push.sh "your commit message"`
 
 ---
 
