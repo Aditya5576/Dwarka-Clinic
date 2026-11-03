@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   UserCheck, 
-  Bell, 
   BarChart3, 
   ClipboardList, 
+  Bell, 
   Wifi, 
   WifiOff, 
   LogOut
@@ -38,41 +38,47 @@ export const Navbar: React.FC<NavbarProps> = ({
     };
   }, []);
 
+  // Ordered: Check-In -> Reports -> Logs -> Reminders
   const navItems: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }[] = [
     { id: 'checkin', label: 'Check-In', icon: UserCheck },
-    { id: 'reminders', label: 'Reminders', icon: Bell, badge: pendingRemindersCount },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'logs', label: 'Logs', icon: ClipboardList },
+    { id: 'reminders', label: 'Reminders', icon: Bell, badge: pendingRemindersCount },
   ];
 
   return (
     <>
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-[#12161A]/95 backdrop-blur border-b border-slate-800 px-3 py-2 sm:px-6 sm:py-2.5 shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+      {/* Elevated Top Header */}
+      <header className="sticky top-0 z-40 h-16 sm:h-18 px-3 sm:px-5 backdrop-blur-md bg-[#0F1316]/95 border-b border-[#8C701B]/30 shadow-lg flex items-center justify-between">
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-2">
           
-          {/* Logo & Title (Address Removed) */}
-          <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
-            <div className="w-8 h-8 rounded-full overflow-hidden border border-[#8C701B] shadow-sm shrink-0 bg-[#0F1316] flex items-center justify-center">
+          {/* Logo & Brand Typography */}
+          <div className="flex items-center space-x-2.5 sm:space-x-3.5 min-w-0">
+            <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden ring-1 ring-[#C5A028] shadow-md shrink-0 bg-[#0F1316] flex items-center justify-center p-0.5">
               <img
                 src="/logo.png"
                 alt="Dwarka Clinic Logo"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover rounded-full"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/logo.svg';
                 }}
               />
             </div>
-            <h1 className="font-semibold tracking-wide text-sm sm:text-base text-white truncate">
-              Dr. Baldawa's Dwarka Clinic
-            </h1>
+            <div className="min-w-0">
+              <h1 className="font-brand font-bold tracking-wide text-sm sm:text-lg text-white truncate leading-tight">
+                Dr. Baldawa's Dwarka Clinic
+              </h1>
+              <span className="text-[9px] sm:text-[10px] text-[#E6D385]/80 tracking-widest uppercase font-semibold block truncate">
+                SKIN & HAIR CARE • JAYSINGPUR
+              </span>
+            </div>
           </div>
 
           {/* Right Action Bar */}
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
             
             {/* Receptionist Indicator Pill */}
-            <div className="hidden xs:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#1A2027] border border-slate-700/70 text-slate-300">
+            <div className="hidden xs:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#1A2027] border border-slate-700/80 text-slate-300">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span className="truncate">Reception Desk</span>
             </div>
@@ -107,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     key={item.id}
                     onClick={() => onTabChange(item.id)}
-                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all relative ${
+                    className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all relative cursor-pointer ${
                       isActive
                         ? 'bg-[#C5A028]/20 text-[#E6D385] border border-[#8C701B]/50 shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -129,7 +135,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onLogout}
               title="Logout Receptionist"
-              className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40"
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-900/40 cursor-pointer"
             >
               <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
@@ -137,7 +143,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* Mobile Bottom Tab Bar */}
+      {/* Mobile Bottom Tab Bar (Reordered: Check-In -> Reports -> Logs -> Reminders) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#12161A]/95 backdrop-blur border-t border-slate-800 px-1 pt-1 pb-[max(0.6rem,env(safe-area-inset-bottom,0.6rem))] shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
         <div className="grid grid-cols-4 gap-0.5 max-w-md mx-auto">
           {navItems.map((item) => {
@@ -147,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`flex flex-col items-center justify-center py-1.5 px-0.5 min-w-0 rounded-xl transition-colors relative ${
+                className={`flex flex-col items-center justify-center py-1.5 px-0.5 min-w-0 rounded-xl transition-colors relative cursor-pointer ${
                   isActive
                     ? 'text-[#E6D385] font-bold bg-[#C5A028]/15 border border-[#8C701B]/40'
                     : 'text-slate-400 hover:text-slate-200'
@@ -161,7 +167,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] mt-0.5 tracking-tight truncate w-full text-center block">
+                <span className="text-[10px] mt-0.5 tracking-tight truncate w-full text-center block font-medium">
                   {item.label}
                 </span>
               </button>

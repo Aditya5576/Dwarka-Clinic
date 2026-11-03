@@ -6,6 +6,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        brand: ['Cinzel', 'Outfit', 'serif'],
+      },
       colors: {
         'clinic-bg': '#0F1316',
         'clinic-card': '#171C21',
@@ -31,7 +35,8 @@ export default {
       animation: {
         'pulse-subtle': 'pulse-subtle 3s ease-in-out infinite',
         'gold-shimmer': 'gold-shimmer 2.5s ease infinite',
-        'fade-out': 'fade-out 0.4s ease-out forwards'
+        'fade-out': 'fade-out 0.4s ease-out forwards',
+        'fade-in': 'fadeIn 200ms ease-out forwards'
       },
       keyframes: {
         'pulse-subtle': {
@@ -46,6 +51,10 @@ export default {
         'fade-out': {
           '0%': { opacity: '1', visibility: 'visible' },
           '100%': { opacity: '0', visibility: 'hidden' }
+        },
+        'fadeIn': {
+          '0%': { opacity: '0', transform: 'translateY(4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
         }
       }
     },

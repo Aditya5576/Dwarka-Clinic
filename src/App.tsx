@@ -112,10 +112,12 @@ export const App: React.FC = () => {
           />
 
           <main className="flex-1 overflow-y-auto pb-20 md:pb-6 px-3 pt-2">
-            {activeTab === 'checkin' && <CheckIn onCheckInSuccess={updateRemindersCount} />}
-            {activeTab === 'reminders' && <Reminders />}
-            {activeTab === 'reports' && <Reports />}
-            {activeTab === 'logs' && <Logs />}
+            <div key={activeTab} className="animate-fade-in w-full">
+              {activeTab === 'checkin' && <CheckIn onCheckInSuccess={updateRemindersCount} />}
+              {activeTab === 'reports' && <Reports />}
+              {activeTab === 'logs' && <Logs />}
+              {activeTab === 'reminders' && <Reminders />}
+            </div>
           </main>
         </div>
       )}

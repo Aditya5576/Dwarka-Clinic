@@ -11,7 +11,10 @@ import {
   AlertCircle,
   Phone,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Printer,
+  History,
+  IndianRupee
 } from 'lucide-react';
 import { 
   type Patient, 
@@ -29,6 +32,11 @@ import {
 import { ReceiptModal } from './ReceiptModal';
 
 const TOP_HUBS = ['Jaysingpur', 'Purtiwadi', 'Shirol', 'Sangli', 'Miraj', 'Ichalkaranji'] as const;
+
+interface RecentCheckInItem {
+  visit: Visit;
+  patient: Patient;
+}
 
 interface CheckInProps {
   onCheckInSuccess?: () => void;
@@ -51,8 +59,10 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [shift, setShift] = useState<ShiftType>(detectCurrentShift());
 
-  // Dashboard Context Counters
+  // Dashboard Context Counters & Recents
   const [todayVisitsCount, setTodayVisitsCount] = useState<number>(0);
+  const [shiftRevenue, setShiftRevenue] = useState<number>(0);
+  const [recentCheckIns, setRecentCheckIns] = useState<RecentCheckInItem[]>([]);
 
   // Modal and submission state
   const [completedVisit, setCompletedVisit] = useState<Visit | null>(null);
@@ -63,13 +73,32 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   const loadTodayStats = useCallback(async () => {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
-      const all = await db.visits.toArray();
-      const todayCount = all.filter(v => v.date.startsWith(todayStr)).length;
-      setTodayVisitsCount(todayCount);
+      const allVisits = await db.visits.toArray();
+      const todayVisits = allVisits.filter(v => v.date.startsWith(todayStr));
+      
+      setTodayVisitsCount(todayVisits.length);
+
+      // Current shift revenue
+      const currentShiftVisits = todayVisits.filter(v => v.shift === shift);
+      const currentShiftRev = currentShiftVisits.reduce((acc, v) => acc + v.amount, 0);
+      setShiftRevenue(currentShiftRev);
+
+      // Last 3 checked in patients today (newest first)
+      const sorted = [...todayVisits].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const top3 = sorted.slice(0, 3);
+
+      const items: RecentCheckInItem[] = [];
+      for (const v of top3) {
+        const p = await db.patients.get(v.patientId);
+        if (p) {
+          items.push({ visit: v, patient: p });
+        }
+      }
+      setRecentCheckIns(items);
     } catch (err) {
       console.error('Error loading today stats:', err);
     }
-  }, []);
+  }, [shift]);
 
   useEffect(() => {
     setShift(detectCurrentShift());
@@ -216,68 +245,81 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
     loadTodayStats();
   };
 
+  const handleReprintSlip = (item: RecentCheckInItem) => {
+    setCompletedPatient(item.patient);
+    setCompletedVisit(item.visit);
+  };
+
   const remainingRegions = REGIONS_LIST.filter(r => !(TOP_HUBS as readonly string[]).includes(r));
 
   return (
-    <div className="max-w-2xl mx-auto px-2 sm:px-4 py-3 sm:py-4 space-y-3.5">
+    <div className="max-w-2xl mx-auto px-2 sm:px-4 py-3 sm:py-4 space-y-4">
       
-      {/* Top Context Summary Strip */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-        {/* Active Shift Card */}
-        <div className="bg-[#171C21] p-3 sm:p-3.5 rounded-xl border border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#C5A028]" />
-              <span>Current Shift</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setShift(s => s === 'Morning' ? 'Evening' : 'Morning')}
-              className="text-[10px] text-[#C5A028] hover:text-[#E6D385] font-semibold underline flex items-center gap-1 cursor-pointer"
-            >
-              <RefreshCw className="w-2.5 h-2.5" /> Toggle
-            </button>
-          </div>
-          <div className="mt-1.5">
-            <p className="text-sm sm:text-base font-bold text-white">
-              {shift} Shift
+      {/* 1. Live Shift & Registration Banner */}
+      <div className="bg-[#171C21] p-3.5 sm:p-4 rounded-2xl border border-slate-800 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          
+          {/* Shift Details */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1 bg-[#C5A028]/15 rounded-md text-[#C5A028] border border-[#8C701B]/40">
+                <Clock className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-bold text-white font-brand tracking-wide">
+                {shift} Shift Operations
+              </span>
+              <button
+                type="button"
+                onClick={() => setShift(s => s === 'Morning' ? 'Evening' : 'Morning')}
+                className="text-[10px] text-[#C5A028] hover:text-[#E6D385] font-semibold underline flex items-center gap-1 cursor-pointer ml-1"
+              >
+                <RefreshCw className="w-2.5 h-2.5" /> Toggle
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Hours: {shift === 'Morning' ? '11:00 AM – 2:00 PM' : '5:00 PM – 8:30 PM'}
             </p>
-            <p className="text-[10px] sm:text-[11px] text-slate-400">
-              {shift === 'Morning' ? '11:00 AM – 2:00 PM' : '5:00 PM – 8:30 PM'}
-            </p>
           </div>
-        </div>
 
-        {/* Today's Registrations Count */}
-        <div className="bg-[#171C21] p-3 sm:p-3.5 rounded-xl border border-slate-800 shadow-sm flex flex-col justify-between">
-          <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Today's Registrations</span>
-          </span>
-          <div className="mt-1.5 flex items-baseline gap-1.5">
-            <span className="text-lg sm:text-xl font-black text-white">
-              {todayVisitsCount}
-            </span>
-            <span className="text-[11px] text-slate-400 font-medium">
-              Patients Checked In
-            </span>
+          {/* Shift Live Metrics */}
+          <div className="flex items-center gap-4 self-start sm:self-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="text-left sm:text-right">
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                Today's Intakes
+              </span>
+              <span className="text-base sm:text-lg font-black text-white flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-emerald-400 inline" />
+                {todayVisitsCount}
+              </span>
+            </div>
+
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                Shift Tally
+              </span>
+              <span className="text-base sm:text-lg font-black text-[#E6D385] flex items-center gap-0.5 justify-end">
+                <IndianRupee className="w-3.5 h-3.5 text-[#C5A028]" />
+                {shiftRevenue}
+              </span>
+            </div>
           </div>
+
         </div>
       </div>
 
-      {/* Main Intake Card */}
-      <div className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-lg">
+      {/* 2. Main Patient Intake Card */}
+      <div className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-xl">
         
         <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-slate-800/80">
           <div className="p-1.5 bg-[#C5A028]/10 text-[#C5A028] rounded-lg border border-[#8C701B]/30">
             <UserPlus className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-sm sm:text-base font-bold text-white tracking-wide">
-              Patient Intake & Fee Collection
+            <h2 className="text-sm sm:text-base font-bold text-white tracking-wide font-brand">
+              Patient Check-In & Fee Engine
             </h2>
             <p className="text-[11px] text-slate-400">
-              Search by mobile number to detect past history & calculate consultation fees
+              Fast intake, automated 30-day fee qualification & digital slip
             </p>
           </div>
         </div>
@@ -374,7 +416,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
 
       {/* Step 2: Patient Registration & Fee Confirmation Form */}
       {(selectedPatient || isRegisteringNew) && (
-        <form onSubmit={handleSubmitCheckIn} className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-lg space-y-4">
+        <form onSubmit={handleSubmitCheckIn} className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-xl space-y-4">
           
           <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -383,7 +425,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                   ? 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]/50' 
                   : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
               }`}>
-                {selectedPatient ? `Existing Patient (${selectedPatient.id})` : 'New Patient Intake'}
+                {selectedPatient ? `Existing Patient (${selectedPatient.id})` : 'New Patient Registration'}
               </span>
             </div>
             {selectedPatient && matchingPatients.length > 1 && (
@@ -573,6 +615,68 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
 
         </form>
       )}
+
+      {/* 3. Recent Check-Ins Today List (Last 3 Patients) */}
+      <div className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-lg space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-[#C5A028]" />
+            <h3 className="text-xs sm:text-sm font-bold text-white font-brand tracking-wide">
+              Recent Check-Ins Today
+            </h3>
+          </div>
+          <span className="text-[10px] text-slate-400 font-semibold">
+            Last 3 Patients
+          </span>
+        </div>
+
+        {recentCheckIns.length === 0 ? (
+          <div className="p-4 text-center text-slate-500 text-xs font-medium">
+            No patient check-ins recorded yet today.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentCheckIns.map(({ visit, patient }) => {
+              const visitTime = new Date(visit.date).toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              });
+
+              return (
+                <div
+                  key={visit.id}
+                  className="bg-[#1A2027]/70 p-3 rounded-xl border border-slate-800 hover:border-[#8C701B]/50 transition flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] font-bold text-[#E6D385] bg-[#C5A028]/15 px-1.5 py-0.5 rounded border border-[#8C701B]/40 shrink-0">
+                        {patient.id}
+                      </span>
+                      <h4 className="font-bold text-white text-xs sm:text-sm truncate">
+                        {patient.name}
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                      {visitTime} • {visit.shift} Shift • ₹{visit.amount} ({visit.mode})
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleReprintSlip({ visit, patient })}
+                    className="px-2.5 py-1.5 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shrink-0 cursor-pointer"
+                    title="Reprint or Share Slip"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-[#C5A028]" />
+                    <span className="hidden sm:inline">Reprint Slip</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Digital Receipt Modal */}
       {completedVisit && completedPatient && (
