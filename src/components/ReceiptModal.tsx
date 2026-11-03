@@ -6,7 +6,6 @@ import {
   ArrowRight, 
   Calendar, 
   CreditCard, 
-  Building2,
   Clock,
   User,
   ShieldCheck,
@@ -95,14 +94,26 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
         {/* Printable Receipt Body */}
         <div id="printable-receipt" className="p-4 sm:p-6 bg-white overflow-y-auto flex-1 break-words">
           <div className="text-center pb-3 sm:pb-4 border-b border-dashed border-slate-300">
-            <div className="w-10 h-10 bg-clinic-50 text-clinic-700 rounded-full flex items-center justify-center mx-auto mb-2 border border-clinic-200">
-              <Building2 className="w-5 h-5" />
+            <div className="w-12 h-12 rounded-full p-0.5 bg-gradient-to-tr from-[#B38F1E] via-[#E6D385] to-[#C5A028] mx-auto mb-2 shadow-sm flex items-center justify-center">
+              <div className="w-full h-full rounded-full overflow-hidden bg-[#12161A] flex items-center justify-center">
+                <img
+                  src="/logo.png"
+                  alt="Dwarka Clinic Emblem"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/logo.svg';
+                  }}
+                />
+              </div>
             </div>
             <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
               Dr. Baldawa's Dwarka Clinic
             </h2>
+            <p className="text-[11px] font-bold text-[#C5A028] tracking-widest uppercase mt-0.5">
+              Skin & Hair Care • Jaysingpur
+            </p>
             <p className="text-xs text-slate-600 font-medium mt-0.5">
-              Lane No. 8, Opp. Terapanthi Bhavan, Purtiwadi, Jaysingpur
+              Lane No. 8, Opp. Terapanthi Bhavan, Purtiwadi
             </p>
             <p className="text-[11px] text-slate-500">Phone: 9822012345 / 9421198765</p>
           </div>

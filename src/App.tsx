@@ -7,10 +7,12 @@ import { CheckIn } from './components/CheckIn';
 import { Reminders } from './components/Reminders';
 import { Reports } from './components/Reports';
 import { Logs } from './components/Logs';
+import { SplashScreen } from './components/SplashScreen';
 
 const SESSION_STORAGE_KEY = 'dwarka_reception_session';
 
 export const App: React.FC = () => {
+  const [showSplash, setShowSplash] = useState<boolean>(true);
   const [session, setSession] = useState<UserSession | null>(() => {
     try {
       const stored = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -74,7 +76,7 @@ export const App: React.FC = () => {
     setSession(null);
   };
 
-  if (isInitializing) {
+  if (isInitializing && !showSplash) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center space-y-3">
@@ -85,29 +87,33 @@ export const App: React.FC = () => {
     );
   }
 
-  if (!session || !session.isLoggedIn) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans">
-      <Navbar
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          updateRemindersCount();
-        }}
-        onLogout={handleLogout}
-        pendingRemindersCount={pendingRemindersCount}
-      />
+    <>
+      {showSplash && <SplashScreen onDismiss={() => setShowSplash(false)} />}
 
-      <main className="flex-1 pb-28 sm:pb-32 md:pb-12">
-        {activeTab === 'checkin' && <CheckIn />}
-        {activeTab === 'reminders' && <Reminders />}
-        {activeTab === 'reports' && <Reports />}
-        {activeTab === 'logs' && <Logs />}
-      </main>
-    </div>
+      {(!session || !session.isLoggedIn) ? (
+        <Login onLoginSuccess={handleLoginSuccess} />
+      ) : (
+        <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans">
+          <Navbar
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              updateRemindersCount();
+            }}
+            onLogout={handleLogout}
+            pendingRemindersCount={pendingRemindersCount}
+          />
+
+          <main className="flex-1 pb-28 sm:pb-32 md:pb-12">
+            {activeTab === 'checkin' && <CheckIn />}
+            {activeTab === 'reminders' && <Reminders />}
+            {activeTab === 'reports' && <Reports />}
+            {activeTab === 'logs' && <Logs />}
+          </main>
+        </div>
+      )}
+    </>
   );
 };
 

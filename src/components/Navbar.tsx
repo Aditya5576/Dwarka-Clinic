@@ -6,8 +6,7 @@ import {
   ClipboardList, 
   Wifi, 
   WifiOff, 
-  LogOut,
-  Building2
+  LogOut
 } from 'lucide-react';
 import { type ActiveTab } from '../types';
 
@@ -52,8 +51,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-3 py-2 sm:px-6 sm:py-2.5 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-clinic-700 to-clinic-500 flex items-center justify-center text-white shadow-md shadow-clinic-500/20 shrink-0">
-              <Building2 className="w-4 h-4 sm:w-6 sm:h-6" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-[#C5A028]/60 shadow-sm shrink-0 bg-[#12161A] flex items-center justify-center">
+              <img
+                src="/logo.png"
+                alt="Dwarka Clinic Logo"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/logo.svg';
+                }}
+              />
             </div>
             <div className="min-w-0">
               <h1 className="text-sm sm:text-lg font-bold text-slate-900 leading-tight truncate">

@@ -8,6 +8,17 @@
   }
 }
 
+/* Gold Gradient Utilities */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #FBF7EE 0%, #E6D385 25%, #C5A028 50%, #E6D385 75%, #B38F1E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-gradient-border {
+  border-image: linear-gradient(135deg, #E6D385, #C5A028, #B38F1E) 1;
+}
+
 /* Optimized print stylesheet for clinic receipt slip */
 @media print {
   body * {
@@ -27,4 +38,3 @@
     box-shadow: none !important;
   }
 }
-

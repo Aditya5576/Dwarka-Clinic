@@ -7,13 +7,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['logo.svg', 'logo.png', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: "Dr. Baldawa's Dwarka Clinic",
         short_name: "Dwarka Clinic",
         description: "Patient Intake & Receptionist Management PWA",
-        theme_color: "#0284c7",
-        background_color: "#ffffff",
+        theme_color: "#12161A",
+        background_color: "#12161A",
         display: "standalone",
         orientation: "portrait-primary",
         scope: "/",

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Gold Metallic Gradients -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EED58E" />
+      <stop offset="35%" stop-color="#C5A028" />
+      <stop offset="70%" stop-color="#FBF7EE" />
+      <stop offset="100%" stop-color="#B38F1E" />
+    </linearGradient>
+
+    <radialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#C5A028" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#12161A" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Text Paths for Circular Arcs -->
+    <!-- Top arc: Radius 195 -->
+    <path id="topArc" d="M 65,250 A 185,185 0 0,1 435,250" fill="none" />
+    <!-- Bottom arc: Radius 195 -->
+    <path id="bottomArc" d="M 435,250 A 185,185 0 0,1 65,250" fill="none" />
+  </defs>
+
+  <!-- Dark Obsidian Base Circle -->
+  <circle cx="250" cy="250" r="240" fill="#12161A" />
+  <circle cx="250" cy="250" r="236" fill="url(#goldGlow)" />
+
+  <!-- Outer Double Gold Ring -->
+  <circle cx="250" cy="250" r="230" fill="none" stroke="url(#goldGrad)" stroke-width="4" />
+  <circle cx="250" cy="250" r="222" fill="none" stroke="url(#goldGrad)" stroke-width="1.5" />
+
+  <!-- Inner Gold Ring Border -->
+  <circle cx="250" cy="250" r="148" fill="none" stroke="url(#goldGrad)" stroke-width="2.5" />
+
+  <!-- Top Curved Text: DR. BALDAWA'S -->
+  <text fill="url(#goldGrad)" font-family="'Cinzel', 'Times New Roman', serif, sans-serif" font-size="28" font-weight="bold" letter-spacing="4">
+    <textPath href="#topArc" startOffset="50%" text-anchor="middle">
+      DR. BALDAWA'S
+    </textPath>
+  </text>
+
+  <!-- Bottom Curved Text: DWARKA CLINIC -->
+  <text fill="url(#goldGrad)" font-family="'Cinzel', 'Times New Roman', serif, sans-serif" font-size="26" font-weight="bold" letter-spacing="5">
+    <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">
+      DWARKA CLINIC
+    </textPath>
+  </text>
+
+  <!-- Center Gold Silhouette Circle -->
+  <circle cx="250" cy="250" r="138" fill="url(#goldGrad)" />
+
+  <!-- Dermatology Profile Cutout (Skin & Hair Silhouette in Dark #12161A) -->
+  <g fill="#12161A">
+    <!-- Center Dark Silhouette Head Profile -->
+    <path d="M 235,142 C 275,142 305,170 305,210 C 305,230 298,245 288,255 C 295,260 305,270 310,285 C 315,300 310,320 295,335 C 280,350 260,358 235,358 C 210,358 190,348 178,332 C 168,318 165,300 168,280 C 172,255 185,235 198,220 C 190,205 192,185 205,165 C 215,150 225,142 235,142 Z" opacity="0.15" />
+    
+    <!-- Male and Female Face Silhouette Profiles in Golden Medallion -->
+    <!-- Female face profile (facing right) & Male face profile (facing left) -->
+    <path d="M 252,148 C 265,155 272,168 274,182 C 275,190 273,198 270,205 C 268,208 270,212 274,215 C 282,222 284,232 282,242 C 280,248 276,252 272,256 C 278,262 285,270 286,280 C 287,292 280,305 270,314 C 262,322 250,328 240,332 C 235,334 230,336 226,340 C 220,346 222,352 228,354 C 245,354 265,345 280,330 C 298,312 305,285 300,258 C 296,238 284,222 280,205 C 276,188 282,170 272,154 C 265,145 255,142 245,142 C 248,144 250,146 252,148 Z" />
+    <path d="M 230,150 C 220,160 216,175 218,190 C 220,205 228,218 232,230 C 236,242 235,255 228,265 C 220,278 205,288 198,302 C 192,315 195,330 205,342 C 215,354 230,358 245,358 C 238,352 235,344 238,336 C 242,326 252,318 258,308 C 265,296 264,282 258,270 C 252,258 242,248 240,235 C 238,222 244,210 246,196 C 248,182 244,168 236,156 C 234,154 232,152 230,150 Z" />
+  </g>
+
+  <!-- Sparkle Accent Stars on Rings -->
+  <polygon points="250,12 253,19 260,20 254,25 256,32 250,27 244,32 246,25 240,20 247,19" fill="url(#goldGrad)" />
+  <polygon points="250,470 253,477 260,478 254,483 256,490 250,485 244,490 246,483 240,478 247,477" fill="url(#goldGrad)" />
+</svg>
