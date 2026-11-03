@@ -10,9 +10,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss }) => {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   useEffect(() => {
-    // Strictly 3.0 seconds total (3000ms)
-    const totalDuration = 3000;
-    const intervalTime = 30;
+    // 4.5 seconds total
+    const totalDuration = 4500;
+    const intervalTime = 45;
     const step = 100 / (totalDuration / intervalTime);
 
     const progressTimer = setInterval(() => {
@@ -25,10 +25,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss }) => {
       });
     }, intervalTime);
 
-    // Smooth 400ms fade-out begins at 2600ms, completing exactly at 3000ms
+    // Trigger smooth fade-out 500ms before total duration
     const fadeTimer = setTimeout(() => {
       setIsFading(true);
-    }, 2600);
+    }, 4000);
 
     const dismissTimer = setTimeout(() => {
       onDismiss();
@@ -41,6 +41,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss }) => {
     };
   }, [onDismiss]);
 
+  const handleSkip = () => {
+    setIsFading(true);
+    // Instant clean unmount with microscopic RAF tick for CSS fade trigger
+    requestAnimationFrame(() => {
+      onDismiss();
+    });
+  };
+
   return (
     <div 
       className={`fixed inset-0 z-50 flex flex-col items-center justify-between bg-[#0F1316] text-white select-none will-change-[opacity,transform] ${
@@ -48,15 +56,23 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss }) => {
       }`}
       style={{
         transform: 'translateZ(0)',
-        transition: 'opacity 400ms cubic-bezier(0.4, 0, 0.2, 1)',
-        backgroundImage: 'radial-gradient(circle at 50% 40%, rgba(197, 160, 40, 0.16) 0%, rgba(15, 19, 22, 0.96) 65%, #0F1316 100%)'
+        transition: 'opacity 500ms cubic-bezier(0.4, 0, 0.2, 1)',
+        backgroundImage: 'radial-gradient(circle at 50% 38%, rgba(197, 160, 40, 0.16) 0%, rgba(15, 19, 22, 0.95) 65%, #0F1316 100%)'
       }}
     >
-      {/* Top Spacer */}
-      <div className="w-full h-12" />
+      {/* Top Bar with Skip Button */}
+      <div className="w-full flex justify-end p-4 sm:p-6">
+        <button
+          type="button"
+          onClick={handleSkip}
+          className="text-xs font-semibold tracking-wider text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3.5 py-1.5 rounded-full transition active:scale-95 cursor-pointer"
+        >
+          Skip &rarr;
+        </button>
+      </div>
 
-      {/* Center Emblem & Luxury Typography */}
-      <div className="flex flex-col items-center justify-center px-4 -mt-4">
+      {/* Center Emblem & Typography */}
+      <div className="flex flex-col items-center justify-center px-4 -mt-8">
         
         {/* Emblem Halo Container */}
         <div className="relative mb-6">
@@ -66,7 +82,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss }) => {
           <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full p-1 bg-gradient-to-tr from-[#8C701B] via-[#E6D385] to-[#C5A028] shadow-[0_0_35px_rgba(197,160,40,0.3)] animate-pulse-subtle">
             <div className="w-full h-full rounded-full overflow-hidden bg-[#0F1316] flex items-center justify-center relative">
               
-              {/* Instant 0ms SVG Fallback */}
+              {/* Instant 0ms SVG Fallback (Always ready, no network wait) */}
               <div className={`w-full h-full absolute inset-0 transition-opacity duration-300 ${imgLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                 <img
                   src="/logo.svg"
@@ -88,7 +104,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss }) => {
 
         {/* Branding Typography */}
         <div className="text-center space-y-1.5">
-          <h1 className="text-xl sm:text-2xl font-black tracking-widest uppercase font-brand text-[#C5A028]">
+          <h1 className="text-xl sm:text-2xl font-black tracking-widest uppercase font-serif text-[#C5A028]">
             <span className="block text-sm sm:text-base font-semibold tracking-[0.25em] text-[#E6D385] mb-0.5">
               DR. BALDAWA'S
             </span>
@@ -107,8 +123,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss }) => {
 
       </div>
 
-      {/* Bottom Progress Bar & Status (completes at 3.0s) */}
-      <div className="w-full max-w-xs px-6 pb-10 text-center space-y-3">
+      {/* Bottom Progress Bar & Status */}
+      <div className="w-full max-w-xs px-6 pb-8 text-center space-y-3">
         <div className="w-full bg-white/10 h-0.5 rounded-full overflow-hidden">
           <div 
             className="h-full bg-gradient-to-r from-[#8C701B] via-[#E6D385] to-[#C5A028] transition-all duration-75 ease-linear rounded-full"
