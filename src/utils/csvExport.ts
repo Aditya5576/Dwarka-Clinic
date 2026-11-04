@@ -1,4 +1,21 @@
 import { type Visit, type Patient } from '../types';
+import { getLocalDateKey } from './dateUtils';
+
+/**
+ * RFC-4180 Compliant CSV Cell Escaper (P1-6)
+ * - Quotes all cells
+ * - Doubles internal quotes (" -> "")
+ * - Neutralizes formula injection vulnerabilities (=, +, -, @, \t, \r) for Excel and Google Sheets
+ */
+export const escapeCsvCell = (value: string | number | undefined | null): string => {
+  if (value === null || value === undefined) return '""';
+  let str = String(value);
+  // Prevent formula injection in Excel / Google Sheets
+  if (/^[=\+\-\@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+};
 
 export function exportVisitsToCSV(visits: Visit[], patients: Patient[]): void {
   const patientMap = new Map<string, Patient>();
@@ -15,7 +32,7 @@ export function exportVisitsToCSV(visits: Visit[], patients: Patient[]): void {
     'Shift',
     'Amount (INR)',
     'Payment Mode'
-  ];
+  ].map(escapeCsvCell);
 
   const rows = visits.map(v => {
     const p = patientMap.get(v.patientId);
@@ -24,16 +41,16 @@ export function exportVisitsToCSV(visits: Visit[], patients: Patient[]): void {
     const timeStr = dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
     return [
-      `"${v.id}"`,
-      `"${v.patientId}"`,
-      `"${(v.patientName || p?.name || '').replace(/"/g, '""')}"`,
-      `"${v.phone || p?.phone || ''}"`,
-      `"${(p?.city || '').replace(/"/g, '""')}"`,
-      `"${dateStr}"`,
-      `"${timeStr}"`,
-      `"${v.shift}"`,
-      v.amount,
-      `"${v.mode}"`
+      escapeCsvCell(v.id),
+      escapeCsvCell(v.patientId),
+      escapeCsvCell(v.patientName || p?.name || ''),
+      escapeCsvCell(v.phone || p?.phone || ''),
+      escapeCsvCell(p?.city || ''),
+      escapeCsvCell(dateStr),
+      escapeCsvCell(timeStr),
+      escapeCsvCell(v.shift),
+      escapeCsvCell(v.amount),
+      escapeCsvCell(v.mode)
     ].join(',');
   });
 
@@ -43,11 +60,10 @@ export function exportVisitsToCSV(visits: Visit[], patients: Patient[]): void {
   
   const link = document.createElement('a');
   link.href = url;
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateKey();
   link.setAttribute('download', `Dwarka_Clinic_Visits_${today}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-

@@ -7,8 +7,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
-        brand: ['Cinzel', 'Outfit', 'serif'],
+        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+        serif: ['"Cinzel"', 'serif'],
+        display: ['"Cinzel"', 'serif'],
+        brand: ['"Cinzel"', 'serif'],
       },
       colors: {
         'clinic-bg': '#0F1316',

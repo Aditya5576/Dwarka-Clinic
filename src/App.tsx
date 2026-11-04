@@ -29,14 +29,18 @@ export const App: React.FC = () => {
   const updateRemindersCount = useCallback(async () => {
     try {
       const allPatients = await db.patients.toArray();
-      const now = Date.now();
-      const dayMs = 24 * 60 * 60 * 1000;
+      const nowDate = new Date();
+      const nowMidnight = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
       let count = 0;
 
       for (const p of allPatients) {
         if (!p.lastVisitDate) continue;
-        const diffDays = Math.floor((now - new Date(p.lastVisitDate).getTime()) / dayMs);
-        if (diffDays >= 25 && diffDays <= 30) {
+        const lastDate = new Date(p.lastVisitDate);
+        if (isNaN(lastDate.getTime())) continue;
+
+        const lastMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate()).getTime();
+        const elapsedDays = Math.round((nowMidnight - lastMidnight) / 86400000);
+        if (elapsedDays >= 25 && elapsedDays <= 30) {
           count++;
         }
       }

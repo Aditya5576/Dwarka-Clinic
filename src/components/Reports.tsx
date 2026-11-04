@@ -8,13 +8,11 @@ import {
   Moon
 } from 'lucide-react';
 import { type Visit, type Patient } from '../types';
-import { db } from '../services/db';
+import { db, getLocalDateKey } from '../services/db';
 import { exportVisitsToCSV } from '../utils/csvExport';
 
 export const Reports: React.FC = () => {
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getLocalDateKey());
   const [allVisits, setAllVisits] = useState<Visit[]>([]);
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,10 +32,9 @@ export const Reports: React.FC = () => {
     loadData();
   }, []);
 
-  // Filter visits by selected calendar date
+  // Filter visits by selected calendar date (Local timezone IST)
   const filteredVisits = allVisits.filter(v => {
-    const visitDate = new Date(v.date).toISOString().split('T')[0];
-    return visitDate === selectedDate;
+    return getLocalDateKey(v.date) === selectedDate;
   });
 
   // Shift Calculations
@@ -105,7 +102,7 @@ export const Reports: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+            onClick={() => setSelectedDate(getLocalDateKey())}
             className="text-xs font-semibold text-[#E6D385] hover:underline self-start sm:self-auto py-1 cursor-pointer"
           >
             Reset to Today

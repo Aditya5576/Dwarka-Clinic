@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  UserPlus, 
-  Check, 
-  Users, 
-  Clock, 
-  MapPin, 
-  CreditCard, 
+import {
+  UserPlus,
+  Check,
+  Users,
+  Clock,
+  MapPin,
+  CreditCard,
   ArrowRight,
   ShieldCheck,
   AlertCircle,
@@ -15,18 +15,19 @@ import {
   History,
   IndianRupee
 } from 'lucide-react';
-import { 
-  type Patient, 
-  type Visit, 
-  type PaymentMode, 
-  REGIONS_LIST 
+import {
+  type Patient,
+  type Visit,
+  type PaymentMode,
+  REGIONS_LIST
 } from '../types';
-import { 
-  db, 
-  calculateVisitFee, 
+import {
+  db,
+  calculateVisitFee,
   getAutomaticShiftInfo,
   type ShiftInfo,
-  getNextPatientId 
+  processCheckInTransaction,
+  getLocalDateKey
 } from '../services/db';
 import { ReceiptModal } from './ReceiptModal';
 
@@ -79,10 +80,10 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
 
   const loadTodayStats = useCallback(async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayKey = getLocalDateKey();
       const allVisits = await db.visits.toArray();
-      const todayVisits = allVisits.filter(v => v.date.startsWith(todayStr));
-      
+      const todayVisits = allVisits.filter(v => getLocalDateKey(v.date) === todayKey);
+
       setTodayVisitsCount(todayVisits.length);
 
       // Current shift revenue
@@ -170,6 +171,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   // Submission Handler
   const handleSubmitCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return; // Immediate synchronous guard to prevent duplicate submission
     setFormError(null);
 
     if (phoneNumber.length !== 10) {
@@ -186,42 +188,15 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
 
     try {
       setIsSubmitting(true);
-      const now = new Date().toISOString();
-      let patientRecord: Patient;
-
-      if (selectedPatient) {
-        patientRecord = {
-          ...selectedPatient,
-          name: patientName.trim(),
-          city: finalCity,
-          lastVisitDate: now
-        };
-        await db.patients.put(patientRecord);
-      } else {
-        const newId = await getNextPatientId();
-        patientRecord = {
-          id: newId,
-          name: patientName.trim(),
-          phone: phoneNumber,
-          city: finalCity,
-          createdAt: now,
-          lastVisitDate: now
-        };
-        await db.patients.add(patientRecord);
-      }
-
-      const newVisit: Visit = {
-        id: `visit-${Date.now()}`,
-        patientId: patientRecord.id,
-        patientName: patientRecord.name,
-        phone: patientRecord.phone,
-        date: now,
+      const { patient: patientRecord, visit: newVisit } = await processCheckInTransaction({
+        selectedPatient,
+        patientName,
+        phoneNumber,
+        city: finalCity,
         amount: feeInfo.amount,
-        mode: paymentMode,
+        paymentMode,
         shift: shiftInfo.shift
-      };
-
-      await db.visits.add(newVisit);
+      });
 
       setCompletedPatient(patientRecord);
       setCompletedVisit(newVisit);
@@ -260,11 +235,11 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
 
   return (
     <div className="max-w-2xl mx-auto px-2 sm:px-4 py-3 sm:py-4 space-y-4">
-      
+
       {/* 1. Live Shift & Registration Banner (Automatic Clock Detection) */}
       <div className="bg-[#171C21] p-3.5 sm:p-4 rounded-2xl border border-slate-800 shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          
+
           {/* Shift Details (Read-only Automatic Window Indicator) */}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -272,11 +247,11 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                 <Clock className="w-3.5 h-3.5" />
               </span>
               <span className="text-xs font-bold text-white font-brand tracking-wide">
-                {shiftInfo.label} Operations
+                {shiftInfo.isActive ? `${shiftInfo.label} Operations` : shiftInfo.label}
               </span>
               <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${
-                shiftInfo.isActive 
-                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800' 
+                shiftInfo.isActive
+                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
                   : 'bg-amber-950/60 text-amber-300 border-amber-800'
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${shiftInfo.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
@@ -316,7 +291,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
 
       {/* 2. Main Patient Intake Card */}
       <div className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-xl">
-        
+
         <div className="flex items-center gap-2 mb-3.5 pb-2.5 border-b border-slate-800/80">
           <div className="p-1.5 bg-[#C5A028]/10 text-[#C5A028] rounded-lg border border-[#8C701B]/30">
             <UserPlus className="w-4 h-4" />
@@ -399,8 +374,8 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
 
                     <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
                       <span className={`text-xs font-bold px-2 py-1 rounded-full border whitespace-nowrap ${
-                        fee.amount === 100 
-                          ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800' 
+                        fee.amount === 100
+                          ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800'
                           : 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]/50'
                       }`}>
                         ₹{fee.amount}
@@ -424,12 +399,12 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
       {/* Step 2: Patient Registration & Fee Confirmation Form */}
       {(selectedPatient || isRegisteringNew) && (
         <form onSubmit={handleSubmitCheckIn} className="bg-[#171C21] rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-xl space-y-4">
-          
+
           <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border whitespace-nowrap truncate ${
-                selectedPatient 
-                  ? 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]/50' 
+                selectedPatient
+                  ? 'bg-[#C5A028]/15 text-[#E6D385] border-[#8C701B]/50'
                   : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
               }`}>
                 {selectedPatient ? `Existing Patient (${selectedPatient.id})` : 'New Patient Registration'}
@@ -691,3 +666,4 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
     </div>
   );
 };
+
