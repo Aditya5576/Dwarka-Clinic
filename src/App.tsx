@@ -7,9 +7,10 @@ import { CheckIn } from './components/CheckIn';
 import { Reminders } from './components/Reminders';
 import { Reports } from './components/Reports';
 import { Logs } from './components/Logs';
+import { DoctorDesk } from './components/DoctorDesk';
 import { SplashScreen } from './components/SplashScreen';
 
-const SESSION_STORAGE_KEY = 'dwarka_reception_session';
+const SESSION_STORAGE_KEY = 'dwarka_clinic_user_session';
 
 export const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState<boolean>(true);
@@ -65,9 +66,9 @@ export const App: React.FC = () => {
     initApp();
   }, [session, updateRemindersCount]);
 
-  const handleLoginSuccess = (email: string) => {
+  const handleLoginSuccess = (role: 'reception' | 'doctor', email: string) => {
     const newSession: UserSession = {
-      role: 'reception',
+      role,
       email,
       isLoggedIn: true
     };
@@ -83,7 +84,6 @@ export const App: React.FC = () => {
   // Instant zero-lag tab changer
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
-    // Refresh counts in background microtask without blocking tab UI
     setTimeout(updateRemindersCount, 100);
   };
 
@@ -109,19 +109,26 @@ export const App: React.FC = () => {
       ) : (
         <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#0F1316] text-slate-100 font-sans">
           <Navbar
+            role={session.role}
             activeTab={activeTab}
             onTabChange={handleTabChange}
             onLogout={handleLogout}
             pendingRemindersCount={pendingRemindersCount}
           />
 
-          <main className="flex-1 overflow-y-auto pb-20 md:pb-6 px-3 pt-2">
-            <div key={activeTab} className="animate-fade-in w-full">
-              {activeTab === 'checkin' && <CheckIn onCheckInSuccess={updateRemindersCount} />}
-              {activeTab === 'reports' && <Reports />}
-              {activeTab === 'logs' && <Logs />}
-              {activeTab === 'reminders' && <Reminders />}
-            </div>
+          <main className="flex-1 overflow-y-auto pb-20 md:pb-6 px-3 pt-3">
+            {session.role === 'doctor' ? (
+              <div key="doctor-desk" className="animate-fade-in w-full max-w-7xl mx-auto">
+                <DoctorDesk />
+              </div>
+            ) : (
+              <div key={activeTab} className="animate-fade-in w-full">
+                {activeTab === 'checkin' && <CheckIn onCheckInSuccess={updateRemindersCount} />}
+                {activeTab === 'reports' && <Reports />}
+                {activeTab === 'logs' && <Logs />}
+                {activeTab === 'reminders' && <Reminders />}
+              </div>
+            )}
           </main>
         </div>
       )}

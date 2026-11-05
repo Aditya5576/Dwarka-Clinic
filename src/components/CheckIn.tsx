@@ -13,12 +13,16 @@ import {
   Sparkles,
   Printer,
   History,
-  IndianRupee
+  IndianRupee,
+  FileText,
+  X,
+  CheckCircle2
 } from 'lucide-react';
 import {
   type Patient,
   type Visit,
   type PaymentMode,
+  type ClinicalPrescription,
   REGIONS_LIST
 } from '../types';
 import {
@@ -27,8 +31,12 @@ import {
   getAutomaticShiftInfo,
   type ShiftInfo,
   processCheckInTransaction,
-  getLocalDateKey
+  getLocalDateKey,
+  getPrescriptionByVisitId
 } from '../services/db';
+import { broadcastNewPatientCheckIn } from '../services/notificationService';
+import { formatIndianDisplayDate } from '../utils/clinicalUtils';
+import { lockBodyScroll } from '../utils/scrollLock';
 import { ReceiptModal } from './ReceiptModal';
 
 const TOP_HUBS = ['Jaysingpur', 'Purtiwadi', 'Shirol', 'Sangli', 'Miraj', 'Ichalkaranji'] as const;
@@ -67,8 +75,17 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   // Modal and submission state
   const [completedVisit, setCompletedVisit] = useState<Visit | null>(null);
   const [completedPatient, setCompletedPatient] = useState<Patient | null>(null);
+  const [reviewModalItem, setReviewModalItem] = useState<{ visit: Visit; patient: Patient; rx: ClinicalPrescription | null } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Universal scroll locking for reception review modal
+  useEffect(() => {
+    if (reviewModalItem) {
+      const unlock = lockBodyScroll();
+      return () => unlock();
+    }
+  }, [reviewModalItem]);
 
   // Periodically re-sync shift based on wall clock
   useEffect(() => {
@@ -200,6 +217,16 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
 
       setCompletedPatient(patientRecord);
       setCompletedVisit(newVisit);
+
+      // Real-time broadcast to Doctor Desk & external tabs
+      broadcastNewPatientCheckIn({
+        type: 'NEW_PATIENT',
+        patientName: patientRecord.name,
+        patientId: patientRecord.id,
+        tokenNumber: todayVisitsCount + 1,
+        shift: newVisit.shift
+      });
+
       await loadTodayStats();
       onCheckInSuccess?.();
     } catch (err: any) {
@@ -229,6 +256,24 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   const handleReprintSlip = (item: RecentCheckInItem) => {
     setCompletedPatient(item.patient);
     setCompletedVisit(item.visit);
+  };
+
+  const handleReviewConsultation = async (item: RecentCheckInItem) => {
+    try {
+      const rx = await getPrescriptionByVisitId(item.visit.id);
+      setReviewModalItem({
+        visit: item.visit,
+        patient: item.patient,
+        rx: rx || null
+      });
+    } catch (e) {
+      console.error('Error fetching consultation summary for reception desk:', e);
+      setReviewModalItem({
+        visit: item.visit,
+        patient: item.patient,
+        rx: null
+      });
+    }
   };
 
   const remainingRegions = REGIONS_LIST.filter(r => !(TOP_HUBS as readonly string[]).includes(r));
@@ -638,21 +683,206 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleReprintSlip({ visit, patient })}
-                    className="px-2.5 py-1.5 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shrink-0 cursor-pointer whitespace-nowrap"
-                    title="Reprint or Share Slip"
-                  >
-                    <Printer className="w-3.5 h-3.5 text-[#C5A028]" />
-                    <span className="hidden sm:inline">Reprint Slip</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      data-testid={`btn-review-visit-${visit.id}`}
+                      onClick={() => handleReviewConsultation({ visit, patient })}
+                      className="px-2.5 py-1.5 bg-[#171C21] hover:bg-[#1E252E] text-slate-300 hover:text-white border border-slate-700/80 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer whitespace-nowrap"
+                      title="Review Consultation & Registration Details"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-[#C5A028]" />
+                      <span className="hidden sm:inline">Review</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleReprintSlip({ visit, patient })}
+                      className="px-2.5 py-1.5 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shrink-0 cursor-pointer whitespace-nowrap"
+                      title="Reprint or Share Slip"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-[#C5A028]" />
+                      <span className="hidden sm:inline">Reprint Slip</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Reception Read-Only Consultation Review Modal (Task 3 & 5) */}
+      {reviewModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-contain overflow-hidden">
+          <div className="bg-[#12161A] w-[95vw] max-w-lg max-h-[88vh] flex flex-col rounded-2xl shadow-2xl border border-[#8C701B]/40 text-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-[#161B21] text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between border-b border-[#8C701B]/30 shrink-0">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-[#C5A028]" />
+                <span className="font-bold text-xs sm:text-sm tracking-wide uppercase text-slate-200 font-brand">
+                  Patient Intake &amp; Consultation Summary
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReviewModalItem(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Patient Identity Strip */}
+              <div className="p-3.5 rounded-xl bg-[#1A2027] border border-slate-800 flex items-center justify-between">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-white text-sm">{reviewModalItem.patient.name}</span>
+                    <span className="font-mono text-[10px] text-[#E6D385] bg-[#C5A028]/15 border border-[#8C701B]/40 px-1.5 py-0.5 rounded font-bold">
+                      {reviewModalItem.patient.id}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 mt-0.5 block">
+                    {reviewModalItem.patient.phone} • {reviewModalItem.patient.city}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block uppercase font-semibold">Shift</span>
+                  <span className="text-xs font-bold text-white font-brand">{reviewModalItem.visit.shift}</span>
+                </div>
+              </div>
+
+              {/* Role-Based Segregation: Reception Intake Fee */}
+              <div className="p-3.5 rounded-xl bg-[#161B21] border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Reception Intake Registration Fee
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded">
+                    Desk Collection
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xl font-bold font-mono text-white">
+                    ₹{reviewModalItem.visit.amount}
+                  </span>
+                  <span className="text-xs text-[#E6D385] font-semibold">
+                    Payment Mode: {reviewModalItem.visit.mode}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Follow-up fee rate (₹100) valid for 30 days from check-in date.
+                </p>
+              </div>
+
+              {/* Clinical Consultation Status & Summary */}
+              <div className="p-3.5 rounded-xl bg-[#161B21] border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Doctor Consultation Status
+                  </span>
+                  {reviewModalItem.rx ? (
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2.5 py-0.5 rounded-full flex items-center space-x-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Completed by Dr. Baldawa</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2.5 py-0.5 rounded-full">
+                      ⏳ Pending Consultation (In Queue)
+                    </span>
+                  )}
+                </div>
+
+                {reviewModalItem.rx ? (
+                  <div className="space-y-2.5 pt-1 border-t border-slate-800">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">Doctor Fee:</span>
+                      <span className="font-mono font-bold text-white">₹{reviewModalItem.rx.doctorFee}</span>
+                    </div>
+
+                    {reviewModalItem.rx.procedureFeeTotal ? (
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400">In-Clinic Procedures Total:</span>
+                        <span className="font-mono font-bold text-emerald-400">₹{reviewModalItem.rx.procedureFeeTotal}</span>
+                      </div>
+                    ) : null}
+
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">Next Follow-Up:</span>
+                      <span className="font-semibold text-white">
+                        {formatIndianDisplayDate(reviewModalItem.rx.nextFollowUpDate)} ({reviewModalItem.rx.followUpDays} Days)
+                      </span>
+                    </div>
+
+                    {reviewModalItem.rx.diagnosisNotes && (
+                      <div className="text-[11px] bg-[#1A2027] p-2.5 rounded-lg border border-slate-800">
+                        <strong className="text-slate-400 block mb-0.5">Doctor Notes / Diagnosis:</strong>
+                        <span className="text-slate-200">{reviewModalItem.rx.diagnosisNotes}</span>
+                      </div>
+                    )}
+
+                    {reviewModalItem.rx.medications && reviewModalItem.rx.medications.length > 0 && (
+                      <div>
+                        <strong className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                          Prescribed Medications ({reviewModalItem.rx.medications.length}) [Read-Only]
+                        </strong>
+                        <div className="space-y-1">
+                          {reviewModalItem.rx.medications.map((m, idx) => (
+                            <div key={idx} className="p-2 rounded bg-[#1A2027] border border-slate-800/80 text-[11px] flex items-center justify-between">
+                              <span className="text-white font-medium">{idx + 1}. {m.name}</span>
+                              <span className="text-slate-400">{m.dosage} • {m.timing}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {reviewModalItem.rx.paperRxPhoto && (
+                      <div className="text-[11px] text-emerald-400 font-semibold bg-emerald-950/30 p-2 rounded border border-emerald-900/40">
+                        ✓ Handwritten paper Rx photo snapshot on file.
+                      </div>
+                    )}
+
+                    <div className="p-2 rounded bg-slate-900/60 border border-slate-800 text-[10px] text-slate-400 italic">
+                      ℹ Clinical prescriptions are strictly read-only for reception staff and cannot be modified at this desk.
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic">
+                    Patient has checked in and is awaiting consultation with Dr. Baldawa. Prescriptions will appear here once finalized.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-3 sm:p-4 bg-[#161B21] border-t border-[#8C701B]/30 flex items-center justify-between gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setReviewModalItem(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCompletedPatient(reviewModalItem.patient);
+                  setCompletedVisit(reviewModalItem.visit);
+                  setReviewModalItem(null);
+                }}
+                className="px-4 py-2 bg-[#C5A028] hover:bg-[#E6D385] text-black rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all shadow-md"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Reprint Registration Receipt</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Digital Receipt Modal */}
       {completedVisit && completedPatient && (

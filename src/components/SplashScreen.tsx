@@ -43,7 +43,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onDismiss }) => {
 
   return (
     <div 
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-between bg-[#0F1316] text-white select-none will-change-[opacity,transform] ${
+      data-testid="splash-screen"
+      onClick={onDismiss}
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-between bg-[#0F1316] text-white select-none cursor-pointer will-change-[opacity,transform] ${
         isFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{

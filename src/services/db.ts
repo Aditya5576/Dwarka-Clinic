@@ -1,17 +1,44 @@
 import Dexie, { type Table } from 'dexie';
-import { type Patient, type Visit, type ShiftType, type VisitAmount, type PaymentMode } from '../types';
+import {
+  type Patient,
+  type Visit,
+  type ShiftType,
+  type VisitAmount,
+  type PaymentMode,
+  type ClinicalPrescription,
+  type CustomMedication,
+  type ClinicalProcedure
+} from '../types';
+import { INDIAN_DERMA_MEDICATIONS } from '../data/indianMedications';
+import { CLINIC_MASTER_PROCEDURES } from '../data/clinicProcedures';
 export { getLocalDateKey } from '../utils/dateUtils';
 export { formatWhatsAppNumber } from '../utils/phoneUtils';
 
 export class DwarkaClinicDB extends Dexie {
   patients!: Table<Patient, string>;
   visits!: Table<Visit, string>;
+  prescriptions!: Table<ClinicalPrescription, string>;
+  customMedications!: Table<CustomMedication, number>;
+  customProcedures!: Table<ClinicalProcedure, number>;
 
   constructor() {
     super('DwarkaClinicDB');
     this.version(1).stores({
       patients: 'id, phone, name, city, createdAt, lastVisitDate',
       visits: 'id, patientId, phone, date, shift, mode, amount',
+    });
+    this.version(3).stores({
+      patients: 'id, phone, name, city, createdAt, lastVisitDate',
+      visits: 'id, patientId, phone, date, shift, mode, amount',
+      prescriptions: 'id, visitId, patientId, consultationDate, nextFollowUpDate',
+      customMedications: '++id, name, type',
+    });
+    this.version(4).stores({
+      patients: 'id, phone, name, city, createdAt, lastVisitDate',
+      visits: 'id, patientId, phone, date, shift, mode, amount',
+      prescriptions: 'id, visitId, patientId, consultationDate, nextFollowUpDate',
+      customMedications: '++id, name, type',
+      customProcedures: '++id, name, category',
     });
   }
 }
@@ -267,6 +294,156 @@ export async function processCheckInTransaction(payload: CheckInPayload): Promis
 }
 
 /**
+ * Task 1 (Milestone 2): Save Custom Medication
+ * Persists newly typed medicines into Dexie customMedications table.
+ */
+export async function saveCustomMedication(med: Omit<CustomMedication, 'id'>): Promise<CustomMedication> {
+  const trimmedName = med.name.trim();
+  const existing = await db.customMedications
+    .filter(m => m.name.toLowerCase() === trimmedName.toLowerCase())
+    .first();
+
+  if (existing) {
+    return existing;
+  }
+
+  const id = await db.customMedications.add({
+    name: trimmedName,
+    type: med.type || 'Tablet',
+    defaultDosage: med.defaultDosage || '',
+    defaultTiming: med.defaultTiming || '',
+    category: med.category || 'Custom'
+  });
+
+  return {
+    id,
+    name: trimmedName,
+    type: med.type || 'Tablet',
+    defaultDosage: med.defaultDosage || '',
+    defaultTiming: med.defaultTiming || '',
+    category: med.category || 'Custom'
+  };
+}
+
+/**
+ * Task 1 (Milestone 2): Atomic Clinical Prescription Save
+ * Saves prescription, updates visit amount if overridden by doctor or includes procedures,
+ * and updates patient lastVisitDate & custom nextFollowUpDate.
+ */
+export async function saveClinicalPrescription(prescription: ClinicalPrescription): Promise<ClinicalPrescription> {
+  const id = prescription.id || (typeof crypto !== 'undefined' && crypto.randomUUID
+    ? `rx-${crypto.randomUUID()}`
+    : `rx-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+
+  const procedureTotal = prescription.procedureFeeTotal ?? (
+    prescription.procedures ? prescription.procedures.reduce((acc, p) => acc + (Number(p.fee) || 0), 0) : 0
+  );
+
+  const fullPrescription: ClinicalPrescription = {
+    ...prescription,
+    id,
+    procedureFeeTotal: procedureTotal,
+    createdAt: prescription.createdAt || new Date().toISOString()
+  };
+
+  const totalBilled = fullPrescription.doctorFee + procedureTotal;
+
+  return await db.transaction('rw', [db.prescriptions, db.visits, db.patients], async () => {
+    // 1. Save prescription
+    await db.prescriptions.put(fullPrescription);
+
+    // 2. Update visit amount with doctorFee + procedure fees
+    const visit = await db.visits.get(fullPrescription.visitId);
+    if (visit) {
+      if (visit.amount !== totalBilled) {
+        await db.visits.update(visit.id, { amount: totalBilled });
+      }
+    }
+
+    // 3. Update patient's lastVisitDate and custom nextFollowUpDate
+    const patient = await db.patients.get(fullPrescription.patientId);
+    if (patient) {
+      await db.patients.update(patient.id, {
+        lastVisitDate: fullPrescription.createdAt,
+        nextFollowUpDate: fullPrescription.nextFollowUpDate
+      });
+    }
+
+    return fullPrescription;
+  });
+}
+
+/**
+ * Save user custom in-clinic procedure into Dexie catalog
+ */
+export async function saveCustomProcedure(proc: Omit<ClinicalProcedure, 'id'>): Promise<ClinicalProcedure> {
+  const trimmedName = proc.name.trim();
+  const id = await db.customProcedures.add({
+    name: trimmedName,
+    category: proc.category || 'Other',
+    fee: Number(proc.fee) || 0,
+    notes: proc.notes || ''
+  });
+
+  return {
+    id,
+    name: trimmedName,
+    category: proc.category || 'Other',
+    fee: Number(proc.fee) || 0,
+    notes: proc.notes || ''
+  };
+}
+
+/**
+ * Retrieve unified procedure catalog (Dr. Baldawa Master + Saved Custom Procedures)
+ */
+export async function getAllProcedureCatalog(): Promise<ClinicalProcedure[]> {
+  const customs = await db.customProcedures.toArray();
+  const map = new Map<string, ClinicalProcedure>();
+
+  for (const p of CLINIC_MASTER_PROCEDURES) {
+    map.set(p.name.toLowerCase(), p);
+  }
+  for (const c of customs) {
+    map.set(c.name.toLowerCase(), c);
+  }
+
+  return Array.from(map.values());
+}
+
+/**
+ * Helper to fetch prescription associated with a visit
+ */
+export async function getPrescriptionByVisitId(visitId: string): Promise<ClinicalPrescription | undefined> {
+  return await db.prescriptions.where('visitId').equals(visitId).first();
+}
+
+/**
+ * Helper to fetch all past prescriptions for a patient
+ */
+export async function getPatientPrescriptions(patientId: string): Promise<ClinicalPrescription[]> {
+  const all = await db.prescriptions.where('patientId').equals(patientId).toArray();
+  return all.sort((a, b) => new Date(b.consultationDate).getTime() - new Date(a.consultationDate).getTime());
+}
+
+/**
+ * Helper to retrieve unified medication catalog (Built-in Derma Master + User Custom Drugs)
+ */
+export async function getAllMedicationCatalog(): Promise<CustomMedication[]> {
+  const customs = await db.customMedications.toArray();
+  const map = new Map<string, CustomMedication>();
+
+  for (const m of INDIAN_DERMA_MEDICATIONS) {
+    map.set(m.name.toLowerCase(), m);
+  }
+  for (const c of customs) {
+    map.set(c.name.toLowerCase(), c);
+  }
+
+  return Array.from(map.values());
+}
+
+/**
  * Pre-seed 3 realistic test patients for immediate verification:
  * - DC-0001: 10 days ago (eligible for ₹100 follow-up)
  * - DC-0002: 27 days ago (due for reminder, eligible for ₹100)
@@ -348,4 +525,3 @@ export async function seedInitialDataIfNeeded(): Promise<void> {
     await db.visits.bulkAdd(seedVisits);
   });
 }
-

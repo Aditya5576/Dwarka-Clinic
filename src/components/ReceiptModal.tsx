@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   CheckCircle2,
   Printer,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { type Patient, type Visit } from '../types';
 import { formatWhatsAppNumber } from '../utils/phoneUtils';
+import { lockBodyScroll } from '../utils/scrollLock';
 
 interface ReceiptModalProps {
   visit: Visit;
@@ -78,9 +79,15 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
     window.print();
   };
 
+  // Universal scroll locking while receipt modal is active
+  useEffect(() => {
+    const unlock = lockBodyScroll();
+    return () => unlock();
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-[#12161A] w-[95vw] max-w-md max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border border-[#8C701B]/40 text-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-contain overflow-hidden">
+      <div className="bg-[#12161A] w-[95vw] max-w-md max-h-[85vh] sm:max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border border-[#8C701B]/40 text-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 
         {/* Modal Top Bar */}
         <div className="bg-[#12161A] text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between border-b border-[#8C701B]/30 shrink-0">
@@ -99,7 +106,7 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
         </div>
 
         {/* Printable Receipt Body in Obsidian & Gold Theme */}
-        <div id="printable-receipt" className="p-4 sm:p-5 bg-[#12161A] text-slate-100 overflow-y-auto flex-1 space-y-3.5 break-words">
+        <div id="printable-receipt" className="p-4 sm:p-5 bg-[#12161A] text-slate-100 overflow-y-auto overscroll-contain flex-1 touch-pan-y space-y-3.5 break-words">
 
           {/* Clinic Brand Header */}
           <div className="text-center p-3.5 bg-[#171C21] border border-[#8C701B]/30 rounded-xl shadow-sm">

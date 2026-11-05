@@ -1,0 +1,18 @@
+{
+  "name": "dwarka-clinic-whatsapp-daemon",
+  "version": "1.0.0",
+  "description": "Local WhatsApp background dispatcher for Dr. Baldawa's Dwarka Clinic PWA",
+  "main": "whatsappDaemon.js",
+  "type": "module",
+  "scripts": {
+    "start": "node whatsappDaemon.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.13",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "pino": "^9.6.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
+

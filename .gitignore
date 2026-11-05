@@ -11,6 +11,8 @@ node_modules/
 
 # Testing & Coverage
 coverage/
+test-results/
+playwright-report/
 
 # Production Build Artifacts
 dist/
