@@ -21,6 +21,7 @@ export interface Visit {
   amount: VisitAmount;
   mode: PaymentMode;
   shift: ShiftType;
+  expectedFollowUpDate?: string; // ISO Date 'YYYY-MM-DD'
 }
 
 export interface UserSession {
@@ -29,7 +30,22 @@ export interface UserSession {
   isLoggedIn: boolean;
 }
 
-export type ActiveTab = 'checkin' | 'reminders' | 'reports' | 'logs';
+export type ActiveTab = 'checkin' | 'recalls' | 'reports' | 'logs' | 'reminders';
+
+export interface FollowUpDefaulter {
+  patientId: string;
+  patientName: string;
+  phone: string;
+  city: string;
+  lastVisitDate: string; // ISO string
+  expectedFollowUpDate: string; // YYYY-MM-DD
+  overdueDays: number; // e.g. 1 to 30
+  doctorNotes?: string;
+  hasProcedures?: boolean;
+  procedureNames?: string[];
+  lastVisitAmount?: number;
+  lastVisitShift?: ShiftType;
+}
 
 export type MedicationType =
   | 'Tablet'

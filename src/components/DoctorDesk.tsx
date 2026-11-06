@@ -92,7 +92,9 @@ export const DoctorDesk: React.FC = () => {
   const [paperRxPhoto, setPaperRxPhoto] = useState<string | undefined>(undefined);
   const [isCompressingPhoto, setIsCompressingPhoto] = useState<boolean>(false);
   const [photoZoomOpen, setPhotoZoomOpen] = useState<boolean>(false);
+  const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
   const [isReadOnlyReview, setIsReadOnlyReview] = useState<boolean>(false);
+  const [showComparisonPreview, setShowComparisonPreview] = useState<boolean>(false);
 
   // Medication Catalog & Autocomplete State
   const [catalog, setCatalog] = useState<CustomMedication[]>([]);
@@ -142,24 +144,31 @@ export const DoctorDesk: React.FC = () => {
 
   // Universal scroll locking for active modals (photo zoom & print modal)
   useEffect(() => {
-    if (photoZoomOpen || !!printModalPrescription) {
+    if (photoZoomOpen || !!zoomPhotoUrl || !!printModalPrescription) {
       const unlock = lockBodyScroll();
       return () => {
         unlock();
       };
     }
-  }, [photoZoomOpen, printModalPrescription]);
+  }, [photoZoomOpen, zoomPhotoUrl, printModalPrescription]);
 
   // Keyboard Esc shortcut to return from Consultation Room back to Waiting Queue
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && selectedQueueItem && !photoZoomOpen && !printModalPrescription) {
-        setSelectedQueueItem(null);
+      if (e.key === 'Escape') {
+        if (photoZoomOpen || !!zoomPhotoUrl) {
+          setPhotoZoomOpen(false);
+          setZoomPhotoUrl(null);
+          return;
+        }
+        if (selectedQueueItem && !printModalPrescription) {
+          setSelectedQueueItem(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedQueueItem, photoZoomOpen, printModalPrescription]);
+  }, [selectedQueueItem, photoZoomOpen, zoomPhotoUrl, printModalPrescription]);
 
   // Auto-dismiss global success toast after 5 seconds
   useEffect(() => {
@@ -327,6 +336,8 @@ export const DoctorDesk: React.FC = () => {
       setMedications([]);
       setProcedures([]);
       setPaperRxPhoto(undefined);
+      setZoomPhotoUrl(null);
+      setPhotoZoomOpen(false);
       setIsReadOnlyReview(false);
     }
   };
@@ -379,7 +390,7 @@ export const DoctorDesk: React.FC = () => {
   // Add Medication to Prescription
   const handleAddMedicationRow = (med?: CustomMedication) => {
     const newItem: PrescriptionItem = {
-      name: med?.name || 'New Medicine',
+      name: med?.name || '',
       type: (med?.type as MedicationType) || 'Tablet',
       dosage: med?.defaultDosage || '1 Tab',
       timing: med?.defaultTiming || 'Morning & Night',
@@ -411,6 +422,28 @@ export const DoctorDesk: React.FC = () => {
       copy[index] = { ...copy[index], [field]: value };
       return copy;
     });
+  };
+
+  // Repeat Last Prescription (Milestone 3)
+  const handleRepeatLastPrescription = () => {
+    if (!patientHistory || patientHistory.length === 0) return;
+    const lastRx = patientHistory[0];
+    if (!lastRx.medications || lastRx.medications.length === 0) {
+      setGlobalSuccessToast(`No digital medications found in previous visit on ${formatIndianDisplayDate(lastRx.consultationDate)}.`);
+      return;
+    }
+
+    const clonedMeds: PrescriptionItem[] = lastRx.medications.map((m) => ({
+      name: m.name,
+      type: m.type,
+      dosage: m.dosage,
+      timing: m.timing,
+      duration: m.duration
+    }));
+
+    setMedications(clonedMeds);
+    const consultDateStr = formatIndianDisplayDate(lastRx.consultationDate);
+    setGlobalSuccessToast(`Copied ${clonedMeds.length} medication${clonedMeds.length > 1 ? 's' : ''} from visit on ${consultDateStr}`);
   };
 
   const handleSelectRowSuggestion = (index: number, med: CustomMedication) => {
@@ -662,7 +695,11 @@ export const DoctorDesk: React.FC = () => {
   const activeRowSuggestions = useMemo(() => {
     if (activeMedicineSuggestionIndex === null) return [];
     const targetItem = medications[activeMedicineSuggestionIndex];
-    if (!targetItem || !targetItem.name.trim()) return [];
+    if (!targetItem) return [];
+    const q = targetItem.name?.trim() || '';
+    if (!q) {
+      return catalog.slice(0, 6);
+    }
     return fuzzyFilter(
       catalog,
       targetItem.name,
@@ -701,6 +738,25 @@ export const DoctorDesk: React.FC = () => {
 
   return (
     <div className="w-full space-y-6">
+
+      {/* Success Toast Banner (Visible in Waiting Queue) */}
+      {!selectedQueueItem && globalSuccessToast && (
+        <div
+          data-testid="doctor-success-toast"
+          className="p-4 rounded-2xl bg-emerald-950/60 border border-emerald-700/60 shadow-xl flex items-center justify-between text-emerald-200 text-xs sm:text-sm font-semibold animate-in fade-in duration-150"
+        >
+          <div className="flex items-center space-x-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>{globalSuccessToast}</span>
+          </div>
+          <button
+            onClick={() => setGlobalSuccessToast(null)}
+            className="p-1 text-emerald-300 hover:text-white rounded transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* =========================================================================
           VIEW 1: DOCTOR HOME / QUEUE DASHBOARD (!selectedQueueItem)
@@ -750,24 +806,6 @@ export const DoctorDesk: React.FC = () => {
             </div>
           </div>
 
-          {/* Success Toast Banner (e.g. after finalizing consultation) */}
-          {globalSuccessToast && (
-            <div
-              data-testid="doctor-success-toast"
-              className="p-4 rounded-2xl bg-emerald-950/60 border border-emerald-700/60 shadow-xl flex items-center justify-between text-emerald-200 text-xs sm:text-sm font-semibold"
-            >
-              <div className="flex items-center space-x-2.5">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                <span>{globalSuccessToast}</span>
-              </div>
-              <button
-                onClick={() => setGlobalSuccessToast(null)}
-                className="p-1 text-emerald-300 hover:text-white rounded transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
 
           {/* Real-Time Floating Patient Intake Arrival Banner */}
           {arrivalNotification && (
@@ -1013,51 +1051,73 @@ export const DoctorDesk: React.FC = () => {
           VIEW 2: ACTIVE CONSULTATION ROOM (selectedQueueItem !== null)
           ========================================================================= */}
       {selectedQueueItem && (
-        <div className="w-full space-y-6">
-          {/* Top Sticky/Subheader Navigation & Patient Strip */}
-          <div className="sticky top-0 z-30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-[#161B21]/95 backdrop-blur-md border border-[#8C701B]/40 shadow-xl">
-            <button
-              type="button"
-              data-testid="btn-back-to-queue"
-              onClick={() => setSelectedQueueItem(null)}
-              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-colors flex items-center space-x-2 cursor-pointer shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4 text-[#C5A028]" />
-              <span>Back to Waiting Queue</span>
-              <span className="hidden md:inline text-[10px] text-slate-400 font-mono">(Esc)</span>
-            </button>
+        <div className="w-full space-y-4">
+          {/* Top Sticky/Subheader Navigation & Patient Strip (Task 3: Solid Opaque Background) */}
+          <div className="sticky top-0 z-30 bg-[#0F1316] pb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-[#12161A] border border-[#8C701B]/40 shadow-xl">
+              <button
+                type="button"
+                data-testid="btn-back-to-queue"
+                onClick={() => setSelectedQueueItem(null)}
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-colors flex items-center space-x-2 cursor-pointer shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#C5A028]" />
+                <span>Back to Waiting Queue</span>
+                <span className="hidden md:inline text-[10px] text-slate-400 font-mono">(Esc)</span>
+              </button>
 
-            <div className="min-w-0 flex items-center space-x-3">
-              <span className="w-8 h-8 rounded-xl bg-[#0F1316] border border-[#8C701B]/50 text-[#E6D385] text-xs font-mono font-bold flex items-center justify-center shrink-0 shadow-inner">
-                #{selectedQueueItem.tokenNumber}
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center space-x-2">
-                  <h2 className="text-sm sm:text-base font-bold text-white truncate">
-                    {selectedQueueItem.patient.name}
-                  </h2>
-                  <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-[#E6D385] font-mono font-bold shrink-0">
-                    {selectedQueueItem.patient.id}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5">
-                  <span className="flex items-center space-x-1">
-                    <Phone className="w-3 h-3 text-slate-500" />
-                    <span>{selectedQueueItem.patient.phone}</span>
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center space-x-1">
-                    <MapPin className="w-3 h-3 text-slate-500" />
-                    <span>{selectedQueueItem.patient.city}</span>
-                  </span>
+              <div className="min-w-0 flex items-center space-x-3">
+                <span className="w-8 h-8 rounded-xl bg-[#0F1316] border border-[#8C701B]/50 text-[#E6D385] text-xs font-mono font-bold flex items-center justify-center shrink-0 shadow-inner">
+                  #{selectedQueueItem.tokenNumber}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-sm sm:text-base font-bold text-white truncate">
+                      {selectedQueueItem.patient.name}
+                    </h2>
+                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-[#E6D385] font-mono font-bold shrink-0">
+                      {selectedQueueItem.patient.id}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-0.5">
+                    <span className="flex items-center space-x-1">
+                      <Phone className="w-3 h-3 text-slate-500" />
+                      <span>{selectedQueueItem.patient.phone}</span>
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center space-x-1">
+                      <MapPin className="w-3 h-3 text-slate-500" />
+                      <span>{selectedQueueItem.patient.city}</span>
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="text-xs font-mono text-[#E6D385] bg-[#C5A028]/10 border border-[#8C701B]/30 px-3 py-1.5 rounded-lg self-start sm:self-auto shrink-0">
-              Token #{selectedQueueItem.tokenNumber} • {selectedQueueItem.visit.shift} Shift
+              <div className="text-xs font-mono text-[#E6D385] bg-[#C5A028]/10 border border-[#8C701B]/30 px-3 py-1.5 rounded-lg self-start sm:self-auto shrink-0">
+                Token #{selectedQueueItem.tokenNumber} • {selectedQueueItem.visit.shift} Shift
+              </div>
             </div>
           </div>
+
+          {/* Active Consultation Toast Banner (e.g. after copying medications) */}
+          {globalSuccessToast && (
+            <div
+              data-testid="doctor-success-toast"
+              className="p-4 rounded-2xl bg-emerald-950/60 border border-emerald-700/60 shadow-xl flex items-center justify-between text-emerald-200 text-xs sm:text-sm font-semibold animate-in fade-in"
+            >
+              <div className="flex items-center space-x-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <span>{globalSuccessToast}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGlobalSuccessToast(null)}
+                className="p-1 text-emerald-300 hover:text-white rounded transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Consultation Workspace Body */}
           <div className="bg-[#12161A] border border-slate-800 rounded-2xl p-5 sm:p-7 space-y-6 shadow-xl">
@@ -1195,7 +1255,7 @@ export const DoctorDesk: React.FC = () => {
                               <div
                                 className="relative group/thumb cursor-pointer w-10 h-10 rounded-lg overflow-hidden border border-slate-700 hover:border-[#C5A028] shrink-0"
                                 onClick={() => {
-                                  setPaperRxPhoto(rx.paperRxPhoto);
+                                  setZoomPhotoUrl(rx.paperRxPhoto || null);
                                   setPhotoZoomOpen(true);
                                 }}
                                 title="Tap to zoom handwritten Rx"
@@ -1424,7 +1484,10 @@ export const DoctorDesk: React.FC = () => {
                         <button
                           type="button"
                           data-testid="btn-review-enlarge-photo"
-                          onClick={() => setPhotoZoomOpen(true)}
+                          onClick={() => {
+                            setZoomPhotoUrl(paperRxPhoto || null);
+                            setPhotoZoomOpen(true);
+                          }}
                           className="mt-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 cursor-pointer flex items-center space-x-1.5"
                         >
                           <Maximize2 className="w-3.5 h-3.5 text-[#C5A028]" />
@@ -1624,7 +1687,10 @@ export const DoctorDesk: React.FC = () => {
                         <button
                           type="button"
                           data-testid="btn-enlarge-photo"
-                          onClick={() => setPhotoZoomOpen(true)}
+                          onClick={() => {
+                            setZoomPhotoUrl(paperRxPhoto || null);
+                            setPhotoZoomOpen(true);
+                          }}
                           className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 cursor-pointer whitespace-nowrap flex items-center space-x-1.5"
                         >
                           <Maximize2 className="w-3.5 h-3.5 text-[#C5A028]" />
@@ -1681,7 +1747,148 @@ export const DoctorDesk: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Medication Autocomplete Search Input */}
+                {/* Milestone 3: Prescription Continuity & Repeat Bar */}
+                {patientHistory.length > 0 && patientHistory[0].medications && patientHistory[0].medications.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-[#C5A028]/15 via-[#1E252E] to-[#161B21] border border-[#8C701B]/50 shadow-md">
+                      <div className="flex items-center space-x-2">
+                        <span className="p-1.5 rounded-lg bg-[#C5A028]/20 text-[#C5A028] border border-[#8C701B]/40 shrink-0">
+                          📋
+                        </span>
+                        <div>
+                          <span className="text-xs font-bold text-[#E6D385] block">
+                            Previous Prescription Available ({formatIndianDisplayDate(patientHistory[0].consultationDate)})
+                          </span>
+                          <span className="text-[11px] text-slate-300">
+                            {patientHistory[0].medications.length} medication(s) prescribed in last visit
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 self-end sm:self-auto shrink-0">
+                        <button
+                          type="button"
+                          data-testid="btn-toggle-comparison"
+                          onClick={() => setShowComparisonPreview(prev => !prev)}
+                          className="min-h-[36px] px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer flex items-center space-x-1"
+                        >
+                          <span>⚖️</span>
+                          <span>{showComparisonPreview ? 'Hide Comparison ▲' : 'Compare Rx ⚖️'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          data-testid="btn-repeat-last-rx"
+                          onClick={handleRepeatLastPrescription}
+                          className="min-h-[36px] px-3.5 py-1.5 rounded-lg bg-[#C5A028] hover:bg-[#E6D385] text-black text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer"
+                        >
+                          <span>📋</span>
+                          <span>Repeat Last Prescription</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Collapsible Side-by-Side Comparison Preview */}
+                    {showComparisonPreview && (
+                      <div
+                        data-testid="prescription-comparison-card"
+                        className="p-4 rounded-xl bg-[#12161A] border border-[#8C701B]/40 shadow-inner space-y-3 animate-in fade-in duration-150"
+                      >
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#E6D385] flex items-center gap-1.5">
+                            <span>⚖️</span>
+                            <span>Prescription Comparison: Previous vs. Current Consultation</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowComparisonPreview(false)}
+                            className="text-slate-400 hover:text-white text-xs cursor-pointer"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                          {/* Column 1: Prior Visit Prescription */}
+                          <div className="p-3 rounded-lg bg-[#161B21] border border-slate-800 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-300 text-[11px] uppercase tracking-wide">
+                                Prior Visit ({formatIndianDisplayDate(patientHistory[0].consultationDate)})
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {patientHistory[0].medications.length} Meds
+                              </span>
+                            </div>
+                            <div className="divide-y divide-slate-800/80 space-y-1">
+                              {patientHistory[0].medications.map((m, idx) => {
+                                const isContinued = medications.some(
+                                  cur => cur.name.trim().toLowerCase() === m.name.trim().toLowerCase()
+                                );
+                                return (
+                                  <div key={idx} className="pt-1.5 first:pt-0 flex items-center justify-between">
+                                    <div>
+                                      <span className="font-bold text-white block text-xs">{m.name}</span>
+                                      <span className="text-[10px] text-slate-400">{m.dosage} • {m.timing}</span>
+                                    </div>
+                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                                      isContinued
+                                        ? 'bg-emerald-950/60 border-emerald-700/60 text-emerald-300'
+                                        : 'bg-slate-800 border-slate-700 text-slate-400'
+                                    }`}>
+                                      {isContinued ? '✓ Continued' : 'Discontinued'}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Column 2: Current Active Consultation */}
+                          <div className="p-3 rounded-lg bg-[#161B21] border border-slate-800 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-[#E6D385] text-[11px] uppercase tracking-wide">
+                                Active Consultation (Today)
+                              </span>
+                              <span className="text-[10px] text-[#C5A028] font-mono">
+                                {medications.length} Meds
+                              </span>
+                            </div>
+                            {medications.length === 0 ? (
+                              <p className="text-[11px] text-slate-500 italic py-2">
+                                No medications added yet. Click "Repeat Last Prescription" or search drugs below.
+                              </p>
+                            ) : (
+                              <div className="divide-y divide-slate-800/80 space-y-1">
+                                {medications.map((m, idx) => {
+                                  const wasInPrior = patientHistory[0].medications.some(
+                                    prev => prev.name.trim().toLowerCase() === m.name.trim().toLowerCase()
+                                  );
+                                  return (
+                                    <div key={idx} className="pt-1.5 first:pt-0 flex items-center justify-between">
+                                      <div>
+                                        <span className="font-bold text-white block text-xs">{m.name}</span>
+                                        <span className="text-[10px] text-slate-400">{m.dosage} • {m.timing}</span>
+                                      </div>
+                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                                        wasInPrior
+                                          ? 'bg-emerald-950/60 border-emerald-700/60 text-emerald-300'
+                                          : 'bg-amber-950/60 border-amber-700/60 text-amber-300'
+                                      }`}>
+                                        {wasInPrior ? '✓ Continued' : '+ Newly Added'}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Medication Autocomplete Search Input (Task 4: Keyboard-Aware) */}
                 <div className="relative">
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5 pointer-events-none" />
@@ -1693,7 +1900,10 @@ export const DoctorDesk: React.FC = () => {
                         setMedSearchInput(e.target.value);
                         setShowCatalogDropdown(true);
                       }}
-                      onFocus={() => setShowCatalogDropdown(true)}
+                      onFocus={(e) => {
+                        setShowCatalogDropdown(true);
+                        e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                      }}
                       placeholder="Type medicine name (e.g. Isotretinoin, Tretinoin, Minoxidil, Itraconazole)..."
                       className="w-full bg-[#1A2027] border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#C5A028] min-h-[46px]"
                     />
@@ -1701,7 +1911,7 @@ export const DoctorDesk: React.FC = () => {
 
                   {/* Autocomplete Dropdown */}
                   {showCatalogDropdown && medSearchInput.trim().length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1.5 z-30 bg-[#161B21] border border-[#C5A028]/40 rounded-2xl shadow-2xl max-h-64 overflow-y-auto divide-y divide-slate-800">
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-[60] bg-[#161B21] border border-[#C5A028]/40 rounded-xl shadow-2xl max-h-[220px] overflow-y-auto divide-y divide-slate-800">
                       {filteredCatalog.map((med, idx) => (
                         <div
                           key={idx}
@@ -1763,6 +1973,7 @@ export const DoctorDesk: React.FC = () => {
                                   type="text"
                                   data-testid={`table-med-name-input-${idx}`}
                                   value={item.name}
+                                  placeholder="Search or type medicine name (e.g. Novanib, Minoxidil)..."
                                   onChange={(e) => {
                                     handleUpdateMedication(idx, 'name', e.target.value);
                                     setActiveMedicineSuggestionIndex(idx);
@@ -1773,12 +1984,12 @@ export const DoctorDesk: React.FC = () => {
                                       setActiveMedicineSuggestionIndex(curr => curr === idx ? null : curr);
                                     }, 200);
                                   }}
-                                  className="w-full bg-[#1A2027] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#C5A028] min-h-[42px]"
+                                  className="w-full bg-[#1A2027] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C5A028] min-h-[42px]"
                                 />
                                 {activeMedicineSuggestionIndex === idx && activeRowSuggestions.length > 0 && (
                                   <div
                                     data-testid={`table-row-suggestions-${idx}`}
-                                    className="absolute left-3 right-3 top-full mt-1 z-30 bg-[#161B21] border border-[#C5A028]/50 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-800"
+                                    className="absolute left-3 right-3 top-full mt-1 z-50 bg-[#161B21] border border-[#C5A028]/50 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-800"
                                   >
                                     {activeRowSuggestions.map((sug, sIdx) => (
                                       <div
@@ -1892,22 +2103,26 @@ export const DoctorDesk: React.FC = () => {
                                 type="text"
                                 data-testid={`mobile-med-name-input-${idx}`}
                                 value={item.name}
+                                placeholder="Search or type medicine name (e.g. Novanib, Minoxidil)..."
                                 onChange={(e) => {
                                   handleUpdateMedication(idx, 'name', e.target.value);
                                   setActiveMedicineSuggestionIndex(idx);
                                 }}
-                                onFocus={() => setActiveMedicineSuggestionIndex(idx)}
+                                onFocus={(e) => {
+                                  setActiveMedicineSuggestionIndex(idx);
+                                  e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                }}
                                 onBlur={() => {
                                   setTimeout(() => {
                                     setActiveMedicineSuggestionIndex(curr => curr === idx ? null : curr);
                                   }, 200);
                                 }}
-                                className="w-full bg-[#12161A] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#C5A028] min-h-[44px]"
+                                className="w-full bg-[#12161A] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C5A028] min-h-[44px]"
                               />
                               {activeMedicineSuggestionIndex === idx && activeRowSuggestions.length > 0 && (
                                 <div
                                   data-testid={`mobile-row-suggestions-${idx}`}
-                                  className="absolute left-0 right-0 top-full mt-1 z-30 bg-[#161B21] border border-[#C5A028]/50 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-800"
+                                  className="absolute left-0 right-0 top-full mt-1 z-[60] bg-[#161B21] border border-[#C5A028]/40 rounded-xl shadow-2xl max-h-[220px] overflow-y-auto divide-y divide-slate-800"
                                 >
                                   {activeRowSuggestions.map((sug, sIdx) => (
                                     <div
@@ -2001,6 +2216,7 @@ export const DoctorDesk: React.FC = () => {
                     {/* Add Another Row Button */}
                     <button
                       type="button"
+                      data-testid="btn-add-medicine-row"
                       onClick={() => handleAddMedicationRow()}
                       className="min-h-[44px] flex items-center justify-center space-x-2 w-full py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
                     >
@@ -2055,7 +2271,10 @@ export const DoctorDesk: React.FC = () => {
                         setProcSearchInput(e.target.value);
                         setShowProcDropdown(true);
                       }}
-                      onFocus={() => setShowProcDropdown(true)}
+                      onFocus={(e) => {
+                        setShowProcDropdown(true);
+                        e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                      }}
                       placeholder="Type procedure name (e.g. Salicylic Peel, Comedone Extraction, PRP, Wart Excision)..."
                       className="w-full bg-[#1A2027] border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#C5A028] min-h-[46px]"
                     />
@@ -2063,7 +2282,7 @@ export const DoctorDesk: React.FC = () => {
 
                   {/* Autocomplete Dropdown */}
                   {showProcDropdown && procSearchInput.trim().length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1.5 z-30 bg-[#161B21] border border-[#C5A028]/40 rounded-2xl shadow-2xl max-h-64 overflow-y-auto divide-y divide-slate-800">
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-[60] bg-[#161B21] border border-[#C5A028]/40 rounded-xl shadow-2xl max-h-[220px] overflow-y-auto divide-y divide-slate-800">
                       {filteredProcedureCatalog.map((proc, idx) => (
                         <div
                           key={idx}
@@ -2344,31 +2563,51 @@ export const DoctorDesk: React.FC = () => {
       </div>
     )}
 
-      {/* Tap-To-Zoom Modal for Paper Rx Photo */}
-      {photoZoomOpen && paperRxPhoto && (
+      {/* Tap-To-Zoom Modal for Paper Rx Photo (Task 2 Architecture) */}
+      {(photoZoomOpen || !!zoomPhotoUrl) && (zoomPhotoUrl || paperRxPhoto) && (
         <div
           data-testid="photo-zoom-modal"
-          onClick={() => setPhotoZoomOpen(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md touch-none select-none"
+          onClick={() => {
+            setPhotoZoomOpen(false);
+            setZoomPhotoUrl(null);
+          }}
+          className="fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 bg-black/90 backdrop-blur-md touch-none overscroll-none select-none overflow-hidden"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative max-w-4xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl bg-black border border-slate-700 shadow-2xl"
+            className="relative w-full max-w-4xl max-h-[88dvh] sm:max-h-[90vh] flex flex-col overflow-hidden rounded-t-3xl sm:rounded-2xl bg-[#0F1316] border border-slate-700 shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
           >
             <button
               type="button"
-              onClick={() => setPhotoZoomOpen(false)}
+              onClick={() => {
+                setPhotoZoomOpen(false);
+                setZoomPhotoUrl(null);
+              }}
               data-testid="btn-close-zoom"
-              className="absolute top-3 right-3 p-2 bg-black/70 hover:bg-black text-white rounded-full transition-colors cursor-pointer z-10"
+              className="absolute top-3 right-3 p-2 bg-black/70 hover:bg-black text-white rounded-full transition-colors cursor-pointer z-10 min-h-[44px] min-w-[44px] flex items-center justify-center"
               title="Close Image Preview"
             >
               <X className="w-5 h-5" />
             </button>
-            <img
-              src={paperRxPhoto}
-              alt="Enlarged Rx Snapshot"
-              className="w-full h-auto max-h-[85vh] sm:max-h-[88vh] object-contain"
-            />
+            <div className="flex-1 overflow-auto modal-scroll-body touch-pan-y overscroll-contain flex items-center justify-center p-2 sm:p-4 bg-slate-950/60">
+              <img
+                src={zoomPhotoUrl || paperRxPhoto}
+                alt="Enlarged Rx Snapshot"
+                className="block max-w-[92vw] max-h-[78dvh] w-auto h-auto object-contain mx-auto rounded-xl bg-white p-1 shadow-2xl"
+              />
+            </div>
+            <div className="shrink-0 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-3 bg-[#0F1316] border-t border-slate-800 flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setPhotoZoomOpen(false);
+                  setZoomPhotoUrl(null);
+                }}
+                className="min-h-[48px] px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer"
+              >
+                Close Full Photo
+              </button>
+            </div>
           </div>
         </div>
       )}

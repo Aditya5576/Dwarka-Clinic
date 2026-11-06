@@ -15,3 +15,8 @@ export const getLocalDateKey = (dateInput: string | Date = new Date()): string =
   });
   return formatter.format(d); // Returns YYYY-MM-DD in IST
 };
+
+/**
+ * Returns today's date formatted as YYYY-MM-DD in Indian Standard Time (IST).
+ */
+export const getTodayIST = (): string => getLocalDateKey(new Date());

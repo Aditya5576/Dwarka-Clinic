@@ -59,60 +59,44 @@ export const PrescriptionPrintModal: React.FC<PrescriptionPrintModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-sm overscroll-contain overflow-hidden print:p-0 print:bg-white print:static print:overflow-visible">
-      <div className="bg-[#12161A] w-[96vw] max-w-2xl max-h-[85vh] sm:max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border border-[#8C701B]/40 text-slate-100 overflow-hidden print:w-full print:max-w-none print:max-h-none print:shadow-none print:border-none print:bg-white print:text-black">
+    <div className="fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center items-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-hidden print:p-0 print:bg-white print:static print:overflow-visible">
+      <div className="bg-[#12161A] border border-[#2D3748] rounded-t-3xl sm:rounded-2xl w-full max-w-2xl max-h-[88dvh] sm:max-h-[85dvh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200 text-slate-100 print:w-full print:max-w-none print:max-h-none print:shadow-none print:border-none print:bg-white print:text-black">
 
         {/* Modal Screen-Only Header */}
-        <div className="bg-[#1A2027] px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between border-b border-[#8C701B]/30 shrink-0 print:hidden">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#C5A028]/20 border border-[#8C701B]/50 flex items-center justify-center text-[#E6D385]">
+        <div className="shrink-0 p-4 border-b border-[#1E252B] flex items-center justify-between bg-[#12161A] print:hidden">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-[#C5A028]/20 border border-[#8C701B]/50 flex items-center justify-center text-[#E6D385] shrink-0">
               <FileText className="w-4 h-4" />
             </div>
-            <div>
-              <span className="font-brand font-bold text-sm tracking-wide text-white">
+            <div className="min-w-0">
+              <span className="font-brand font-bold text-sm tracking-wide text-white block truncate">
                 Clinical Prescription Slip
               </span>
-              <span className="text-[10px] text-[#C5A028] block font-mono">
-                {prescription.patientId} • Token #{tokenNumber || '—'}
+              <span className="text-[10px] text-[#C5A028] block font-mono truncate">
+                {prescription.patientId} • Token #{tokenNumber || '—'} • {prescription.patientName}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handlePrint}
-              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-[#C5A028] text-black text-xs font-bold hover:bg-[#E6D385] transition-all cursor-pointer shadow-md whitespace-nowrap min-h-[40px]"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print Slip</span>
-            </button>
-            <button
-              onClick={handleShareWhatsApp}
-              disabled={isSendingWhatsApp}
-              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-[#25D366] text-white text-xs font-bold hover:bg-[#20bd5a] transition-all cursor-pointer shadow-md disabled:opacity-50 whitespace-nowrap min-h-[40px]"
-            >
-              <Share2 className="w-4 h-4" />
-              <span>{isSendingWhatsApp ? 'Sending...' : 'WhatsApp'}</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer shrink-0 ml-2"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Status notification if WhatsApp triggered */}
         {whatsAppStatus && (
-          <div className="bg-[#C5A028]/15 border-b border-[#C5A028]/30 px-4 py-2.5 text-xs text-[#E6D385] flex items-center space-x-2 print:hidden">
+          <div className="bg-[#C5A028]/15 border-b border-[#C5A028]/30 px-4 py-2.5 text-xs text-[#E6D385] flex items-center space-x-2 print:hidden shrink-0">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{whatsAppStatus}</span>
           </div>
         )}
 
         {/* Printable Prescription Body */}
-        <div className="overflow-y-auto overscroll-contain flex-1 touch-pan-y p-5 sm:p-7 space-y-5 print:p-6 print:overflow-visible text-slate-200 print:text-black bg-gradient-to-b from-[#12161A] to-[#0A0D0F] print:bg-white">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:p-7 space-y-4 sm:space-y-5 text-xs sm:text-sm touch-pan-y print:p-6 print:overflow-visible text-slate-200 print:text-black bg-gradient-to-b from-[#12161A] to-[#0A0D0F] print:bg-white">
 
           {/* Clinic Header */}
           <div className="border-b-2 border-[#C5A028] pb-3 text-center print:border-black">
@@ -328,9 +312,9 @@ export const PrescriptionPrintModal: React.FC<PrescriptionPrintModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Screen-Only Footer */}
-        <div className="bg-[#1A2027] px-4 py-3 sm:px-6 flex items-center justify-between border-t border-[#8C701B]/30 shrink-0 print:hidden">
-          <div className="flex items-center space-x-2 text-xs text-slate-400">
+        {/* Modal Sticky Footer */}
+        <div className="shrink-0 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pb-4 bg-[#0F1316] border-t border-[#1E252B] flex flex-col sm:flex-row items-center justify-between gap-2.5 z-10 print:hidden">
+          <div className="flex items-center space-x-2 text-xs text-slate-400 w-full sm:w-auto justify-between sm:justify-start">
             <span>Consultation: <strong className="text-white font-mono">₹{prescription.doctorFee}</strong></span>
             {prescription.procedureFeeTotal ? (
               <>
@@ -341,19 +325,28 @@ export const PrescriptionPrintModal: React.FC<PrescriptionPrintModalProps> = ({
               </>
             ) : null}
           </div>
-          <div className="flex space-x-2">
+
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+            <button
+              onClick={onClose}
+              className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer flex items-center justify-center order-3 sm:order-1"
+            >
+              Close
+            </button>
+            <button
+              onClick={handleShareWhatsApp}
+              disabled={isSendingWhatsApp}
+              className="w-full sm:w-auto min-h-[48px] px-4 py-3 rounded-xl bg-[#25D366] text-white text-xs sm:text-sm font-bold hover:bg-[#20bd5a] transition-all cursor-pointer shadow-md disabled:opacity-50 whitespace-nowrap flex items-center justify-center space-x-1.5 order-1 sm:order-2"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>{isSendingWhatsApp ? 'Sending...' : 'WhatsApp Rx'}</span>
+            </button>
             <button
               onClick={handlePrint}
-              className="px-4 py-2 rounded-xl bg-[#C5A028] text-black text-xs font-bold hover:bg-[#E6D385] transition-all cursor-pointer shadow-md flex items-center space-x-1 whitespace-nowrap min-h-[40px]"
+              className="w-full sm:w-auto min-h-[48px] px-5 py-3 rounded-xl bg-[#C5A028] text-black text-xs sm:text-sm font-bold hover:bg-[#E6D385] transition-all cursor-pointer shadow-md flex items-center justify-center space-x-1.5 whitespace-nowrap order-2 sm:order-3"
             >
               <Printer className="w-4 h-4" />
               <span>Print Slip</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer min-h-[40px]"
-            >
-              Close
             </button>
           </div>
         </div>

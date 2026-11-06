@@ -77,6 +77,81 @@ _Wishing you a speedy recovery! Dr. Baldawa's Dwarka Clinic._`;
 }
 
 /**
+ * Builds polite clinical recall & defaulter message for WhatsApp
+ */
+export function buildFollowUpRecallWhatsAppText(defaulter: {
+  patientName: string;
+  patientId: string;
+  expectedFollowUpDate: string;
+  overdueDays: number;
+  doctorNotes?: string;
+  hasProcedures?: boolean;
+}): string {
+  const formattedDueDate = formatIndianDisplayDate(defaulter.expectedFollowUpDate);
+  const procedureNote = defaulter.hasProcedures
+    ? `\n*Note:* This follow-up includes your post-procedure clinical evaluation.`
+    : '';
+
+  return `*Dr. Baldawa's Dwarka Clinic — Jaysingpur*
+*SKIN & HAIR CARE SPECIALIST*
+Lane No. 8, Opp. Terapanthi Bhavan, Purtiwadi, Jaysingpur
+Phone: 9822012345
+--------------------------------
+Namaskar *${defaulter.patientName}* ji,
+
+This is a gentle health check-in from Dr. Baldawa's Dwarka Clinic (Patient ID: *${defaulter.patientId}*).
+
+According to your treatment plan, your scheduled medical follow-up consultation was due on *${formattedDueDate}* (approx. ${defaulter.overdueDays} day${defaulter.overdueDays > 1 ? 's' : ''} ago).${procedureNote}
+
+Timely evaluation ensures optimal response to treatment and prevents condition recurrence.
+
+*Clinic Timings:*
+- Morning: 11:00 AM – 2:00 PM
+- Evening: 5:00 PM – 8:30 PM
+
+Please visit at your earliest convenience. If you have already resumed or completed your recovery, you may let us know.
+
+_Wishing you enduring skin & hair health!_
+_Dr. Sandeep Baldawa_`;
+}
+
+/**
+ * Builds formatted Patient Intake Receipt text for WhatsApp
+ */
+export function buildReceiptWhatsAppText(
+  patient: { name: string; id: string; phone: string },
+  visit: { date: string; shift: string; amount: number; mode: string }
+): string {
+  const visitDate = new Date(visit.date);
+  const formattedDate = formatIndianDisplayDate(visit.date);
+  const formattedTime = visitDate.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  const validUntilDate = new Date(visitDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const formattedValidUntil = formatIndianDisplayDate(validUntilDate.toISOString());
+
+  return `*Dr. Baldawa's Dwarka Clinic — Jaysingpur*
+*SKIN & HAIR CARE SPECIALIST*
+Lane No. 8, Opp. Terapanthi Bhavan, Purtiwadi, Jaysingpur
+
+*PATIENT INTAKE RECEIPT*
+--------------------------------
+*Patient ID:* ${patient.id}
+*Name:* ${patient.name}
+*Date:* ${formattedDate} (${formattedTime})
+*Shift:* ${visit.shift}
+*Amount Paid:* ₹${visit.amount} (${visit.mode})
+--------------------------------
+*Next Follow-Up Rate (₹100) Valid Until:*
+*${formattedValidUntil}* (Next 30 Days)
+
+_Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_
+_Dr. Sandeep Baldawa_`;
+}
+
+/**
  * Checks if the local background WhatsApp daemon is running and connected
  */
 export async function checkWhatsAppDaemonStatus(): Promise<{ online: boolean; connected?: boolean; phone?: string }> {

@@ -16,7 +16,15 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3001;
 
-app.use(cors());
+// Restrict CORS to local origins (PWA and local loopback)
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Cross-origin request blocked by Dwarka Clinic CORS policy.'));
+  }
+}));
 app.use(express.json({ limit: '15mb' }));
 
 const AUTH_FOLDER = path.join(__dirname, '.wauth');
@@ -132,10 +140,12 @@ app.post('/api/send-message', async (req, res) => {
       await sock.sendMessage(jid, { text: message });
     }
 
-    console.log(`[WhatsApp Daemon] Message successfully dispatched to ${jid}`);
+    const maskedTarget = `+91 ${cleanPhone.slice(0, 2)}****${cleanPhone.slice(-2)}`;
+    console.log(`[WhatsApp Daemon] Message successfully dispatched to ${maskedTarget}`);
     return res.json({ success: true, jid });
   } catch (err) {
-    console.error(`[WhatsApp Daemon] Failed to send message to ${jid}:`, err);
+    const maskedTarget = `+91 ${cleanPhone.slice(0, 2)}****${cleanPhone.slice(-2)}`;
+    console.error(`[WhatsApp Daemon] Failed to send message to ${maskedTarget}:`, err);
     return res.status(500).json({ success: false, error: err.message || 'Failed to dispatch message.' });
   }
 });

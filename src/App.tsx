@@ -9,6 +9,7 @@ import { Reports } from './components/Reports';
 import { Logs } from './components/Logs';
 import { DoctorDesk } from './components/DoctorDesk';
 import { SplashScreen } from './components/SplashScreen';
+import { RecallManager } from './components/RecallManager';
 
 const SESSION_STORAGE_KEY = 'dwarka_clinic_user_session';
 
@@ -89,7 +90,7 @@ export const App: React.FC = () => {
 
   if (isInitializing && !showSplash) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#0F1316] text-white">
+      <div className="min-h-[100dvh] h-[100dvh] w-screen flex items-center justify-center bg-[#0F1316] text-white">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-3 border-[#C5A028] border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">
@@ -107,7 +108,7 @@ export const App: React.FC = () => {
       {(!session || !session.isLoggedIn) ? (
         <Login onLoginSuccess={handleLoginSuccess} />
       ) : (
-        <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#0F1316] text-slate-100 font-sans">
+        <div className="min-h-[100dvh] h-[100dvh] w-screen overflow-hidden flex flex-col bg-[#0F1316] text-slate-100 font-sans">
           <Navbar
             role={session.role}
             activeTab={activeTab}
@@ -116,7 +117,7 @@ export const App: React.FC = () => {
             pendingRemindersCount={pendingRemindersCount}
           />
 
-          <main className="flex-1 overflow-y-auto pb-20 md:pb-6 px-3 pt-3">
+          <main id="app-scroll-container" className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+5rem)] md:pb-6 px-3 pt-3">
             {session.role === 'doctor' ? (
               <div key="doctor-desk" className="animate-fade-in w-full max-w-7xl mx-auto">
                 <DoctorDesk />
@@ -124,6 +125,7 @@ export const App: React.FC = () => {
             ) : (
               <div key={activeTab} className="animate-fade-in w-full">
                 {activeTab === 'checkin' && <CheckIn onCheckInSuccess={updateRemindersCount} />}
+                {activeTab === 'recalls' && <RecallManager />}
                 {activeTab === 'reports' && <Reports />}
                 {activeTab === 'logs' && <Logs />}
                 {activeTab === 'reminders' && <Reminders />}

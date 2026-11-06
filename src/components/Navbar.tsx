@@ -5,7 +5,8 @@ import {
   ClipboardList, 
   Bell, 
   LogOut,
-  Stethoscope
+  Stethoscope,
+  CalendarClock
 } from 'lucide-react';
 import { type ActiveTab } from '../types';
 
@@ -24,9 +25,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   pendingRemindersCount = 0
 }) => {
-  // Ordered Reception Tabs: Check-In -> Reports -> Logs -> Reminders
+  // Ordered Reception Tabs: Check-In -> Recalls -> Reports -> Logs -> Reminders
   const navItems: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }[] = [
     { id: 'checkin', label: 'Check-In', icon: UserCheck },
+    { id: 'recalls', label: 'Recalls', icon: CalendarClock },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'logs', label: 'Logs', icon: ClipboardList },
     { id: 'reminders', label: 'Reminders', icon: Bell, badge: pendingRemindersCount },
@@ -54,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <h1 data-testid="navbar-clinic-title" className="font-brand font-bold tracking-wide text-xs sm:text-sm md:text-base text-white leading-tight">
                 Dr. Baldawa's Dwarka Clinic
               </h1>
-              <span className="text-[9px] sm:text-[10px] text-[#E6D385]/90 tracking-widest uppercase font-semibold block leading-tight mt-0.5">
+              <span className="text-[9px] sm:text-[10px] text-[#E6D385]/90 tracking-widest uppercase font-semibold block leading-tight mt-0.5 truncate">
                 SKIN &amp; HAIR CARE • JAYSINGPUR
               </span>
             </div>
@@ -86,6 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   return (
                     <button
                       key={item.id}
+                      data-testid={`tab-${item.id}`}
                       onClick={() => onTabChange(item.id)}
                       className={`flex items-center space-x-2 px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all relative cursor-pointer ${
                         isActive
@@ -120,14 +123,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Bottom Tab Bar (Only when logged in as Receptionist) */}
       {role === 'reception' && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#12161A]/95 backdrop-blur border-t border-slate-800 px-1 pt-1 pb-[max(0.6rem,env(safe-area-inset-bottom,0.6rem))] shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
-          <div className="grid grid-cols-4 gap-0.5 max-w-md mx-auto">
+        <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#12161A]/95 backdrop-blur border-t border-slate-800 px-1 pt-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+          <div className="grid grid-cols-5 gap-0.5 max-w-md mx-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
+                  data-testid={`mobile-tab-${item.id}`}
                   onClick={() => onTabChange(item.id)}
                   className={`flex flex-col items-center justify-center py-1.5 px-0.5 min-w-0 rounded-xl transition-colors relative cursor-pointer ${
                     isActive

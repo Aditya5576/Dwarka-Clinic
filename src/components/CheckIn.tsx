@@ -16,7 +16,9 @@ import {
   IndianRupee,
   FileText,
   X,
-  CheckCircle2
+  CheckCircle2,
+  Share2,
+  RefreshCw
 } from 'lucide-react';
 import {
   type Patient,
@@ -35,6 +37,7 @@ import {
   getPrescriptionByVisitId
 } from '../services/db';
 import { broadcastNewPatientCheckIn } from '../services/notificationService';
+import { buildReceiptWhatsAppText, sendSilentWhatsAppMessage } from '../services/whatsappService';
 import { formatIndianDisplayDate } from '../utils/clinicalUtils';
 import { lockBodyScroll } from '../utils/scrollLock';
 import { ReceiptModal } from './ReceiptModal';
@@ -44,6 +47,14 @@ const TOP_HUBS = ['Jaysingpur', 'Purtiwadi', 'Shirol', 'Sangli', 'Miraj', 'Ichal
 interface RecentCheckInItem {
   visit: Visit;
   patient: Patient;
+  tokenNumber?: number;
+}
+
+interface ReviewModalData {
+  visit: Visit;
+  patient: Patient;
+  rx: ClinicalPrescription | null;
+  tokenNumber?: number;
 }
 
 interface CheckInProps {
@@ -75,7 +86,8 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
   // Modal and submission state
   const [completedVisit, setCompletedVisit] = useState<Visit | null>(null);
   const [completedPatient, setCompletedPatient] = useState<Patient | null>(null);
-  const [reviewModalItem, setReviewModalItem] = useState<{ visit: Visit; patient: Patient; rx: ClinicalPrescription | null } | null>(null);
+  const [reviewModalItem, setReviewModalItem] = useState<ReviewModalData | null>(null);
+  const [resendStatus, setResendStatus] = useState<{ state: 'idle' | 'sending' | 'sent' | 'error'; message?: string }>({ state: 'idle' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -108,15 +120,18 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
       const currentShiftRev = currentShiftVisits.reduce((acc, v) => acc + v.amount, 0);
       setShiftRevenue(currentShiftRev);
 
-      // Last 3 checked in patients today (newest first)
+      // Chronological order for today to determine accurate token numbers
+      const chronological = [...todayVisits].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      // Last 5 checked in patients today (newest first)
       const sorted = [...todayVisits].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      const top3 = sorted.slice(0, 3);
+      const topRecent = sorted.slice(0, 5);
 
       const items: RecentCheckInItem[] = [];
-      for (const v of top3) {
+      for (const v of topRecent) {
         const p = await db.patients.get(v.patientId);
         if (p) {
-          items.push({ visit: v, patient: p });
+          const tokenNumber = chronological.findIndex(item => item.id === v.id) + 1;
+          items.push({ visit: v, patient: p, tokenNumber: tokenNumber > 0 ? tokenNumber : undefined });
         }
       }
       setRecentCheckIns(items);
@@ -264,15 +279,41 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
       setReviewModalItem({
         visit: item.visit,
         patient: item.patient,
-        rx: rx || null
+        rx: rx || null,
+        tokenNumber: item.tokenNumber
       });
     } catch (e) {
       console.error('Error fetching consultation summary for reception desk:', e);
       setReviewModalItem({
         visit: item.visit,
         patient: item.patient,
-        rx: null
+        rx: null,
+        tokenNumber: item.tokenNumber
       });
+    }
+  };
+
+  const handleResendWhatsAppReceipt = async (patient: Patient, visit: Visit) => {
+    setResendStatus({ state: 'sending' });
+    const text = buildReceiptWhatsAppText(patient, visit);
+    try {
+      const res = await sendSilentWhatsAppMessage({
+        phone: patient.phone,
+        message: text
+      });
+      setResendStatus({
+        state: 'sent',
+        message: res.channel === 'daemon' ? 'Receipt resent silently via WhatsApp daemon!' : 'Opened WhatsApp Web chat!'
+      });
+      setTimeout(() => {
+        setResendStatus({ state: 'idle' });
+      }, 4000);
+    } catch (err) {
+      console.error('Failed to resend WhatsApp receipt:', err);
+      setResendStatus({ state: 'error', message: 'Failed to resend WhatsApp receipt.' });
+      setTimeout(() => {
+        setResendStatus({ state: 'idle' });
+      }, 4000);
     }
   };
 
@@ -364,7 +405,9 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
               type="tel"
               inputMode="numeric"
               maxLength={10}
-              autoFocus
+              id="input-phone-number"
+              name="phoneNumber"
+              autoComplete="tel"
               value={phoneNumber}
               onChange={handlePhoneChange}
               placeholder="e.g. 9822012345"
@@ -481,6 +524,9 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
             <input
               type="text"
               required
+              id="input-patient-name"
+              name="patientName"
+              autoComplete="name"
               value={patientName}
               onChange={(e) => setPatientName(e.target.value)}
               placeholder="e.g. Ramesh Balasaheb Patil"
@@ -541,6 +587,9 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
                 <input
                   type="text"
                   required
+                  id="input-custom-city"
+                  name="customCity"
+                  autoComplete="address-level2"
                   value={customCity}
                   onChange={(e) => setCustomCity(e.target.value)}
                   placeholder="Specify village or town name"
@@ -657,7 +706,7 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
           </div>
         ) : (
           <div className="space-y-2">
-            {recentCheckIns.map(({ visit, patient }) => {
+            {recentCheckIns.map(({ visit, patient, tokenNumber }) => {
               const visitTime = new Date(visit.date).toLocaleTimeString('en-IN', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -667,42 +716,49 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
               return (
                 <div
                   key={visit.id}
-                  className="bg-[#1A2027]/70 p-3 rounded-xl border border-slate-800 hover:border-[#8C701B]/50 transition flex items-center justify-between gap-2"
+                  data-testid={`recent-visit-row-${visit.id}`}
+                  onClick={() => handleReviewConsultation({ visit, patient, tokenNumber })}
+                  className="bg-[#1A2027]/70 hover:bg-[#1E252E] p-3 rounded-xl border border-slate-800 hover:border-[#8C701B]/50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer group shadow-sm"
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] font-bold text-[#E6D385] bg-[#C5A028]/15 px-1.5 py-0.5 rounded border border-[#8C701B]/40 shrink-0 whitespace-nowrap">
-                        {patient.id}
-                      </span>
-                      <h4 className="font-bold text-white text-xs sm:text-sm truncate">
-                        {patient.name}
-                      </h4>
+                  <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                    <span className="w-8 h-8 rounded-xl bg-[#0F1316] border border-[#8C701B]/40 text-[#E6D385] text-xs font-mono font-bold flex items-center justify-center shrink-0 shadow-inner">
+                      #{tokenNumber || '—'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-[10px] font-bold text-[#E6D385] bg-[#C5A028]/15 px-1.5 py-0.5 rounded border border-[#8C701B]/40 shrink-0 whitespace-nowrap">
+                          {patient.id}
+                        </span>
+                        <h4 className="font-bold text-white text-xs sm:text-sm truncate group-hover:text-[#E6D385] transition-colors">
+                          {patient.name}
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                        {patient.phone} • {patient.city} • {visitTime} • {visit.shift} Shift • <strong className="text-white font-mono">₹{visit.amount}</strong> ({visit.mode})
+                      </p>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                      {visitTime} • {visit.shift} Shift • ₹{visit.amount} ({visit.mode})
-                    </p>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       data-testid={`btn-review-visit-${visit.id}`}
-                      onClick={() => handleReviewConsultation({ visit, patient })}
-                      className="px-2.5 py-1.5 bg-[#171C21] hover:bg-[#1E252E] text-slate-300 hover:text-white border border-slate-700/80 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer whitespace-nowrap"
-                      title="Review Consultation & Registration Details"
+                      onClick={() => handleReviewConsultation({ visit, patient, tokenNumber })}
+                      className="min-h-[38px] px-3 py-1.5 bg-[#171C21] hover:bg-[#222A33] text-slate-200 hover:text-white border border-slate-700/80 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer whitespace-nowrap shadow-sm"
+                      title="View Consultation & Billing Summary"
                     >
                       <FileText className="w-3.5 h-3.5 text-[#C5A028]" />
-                      <span className="hidden sm:inline">Review</span>
+                      <span>View Summary</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleReprintSlip({ visit, patient })}
-                      className="px-2.5 py-1.5 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shrink-0 cursor-pointer whitespace-nowrap"
+                      className="min-h-[38px] px-2.5 py-1.5 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shrink-0 cursor-pointer whitespace-nowrap"
                       title="Reprint or Share Slip"
                     >
                       <Printer className="w-3.5 h-3.5 text-[#C5A028]" />
-                      <span className="hidden sm:inline">Reprint Slip</span>
+                      <span className="hidden sm:inline">Slip</span>
                     </button>
                   </div>
                 </div>
@@ -712,173 +768,222 @@ export const CheckIn: React.FC<CheckInProps> = ({ onCheckInSuccess }) => {
         )}
       </div>
 
-      {/* Reception Read-Only Consultation Review Modal (Task 3 & 5) */}
+      {/* Reception Read-Only Consultation Review Modal (Task 1 & Task 2) */}
       {reviewModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-contain overflow-hidden">
-          <div className="bg-[#12161A] w-[95vw] max-w-lg max-h-[88vh] flex flex-col rounded-2xl shadow-2xl border border-[#8C701B]/40 text-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div
+          data-testid="reception-view-summary-modal"
+          className="fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center items-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-hidden touch-none overscroll-none"
+        >
+          <div className="bg-[#12161A] border border-[#2D3748] rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[88dvh] sm:max-h-[85dvh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
             {/* Modal Header */}
-            <div className="bg-[#161B21] text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between border-b border-[#8C701B]/30 shrink-0">
-              <div className="flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-[#C5A028]" />
-                <span className="font-bold text-xs sm:text-sm tracking-wide uppercase text-slate-200 font-brand">
-                  Patient Intake &amp; Consultation Summary
+            <div className="shrink-0 p-4 border-b border-[#1E252B] flex items-center justify-between bg-[#12161A]">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <span className="w-9 h-9 rounded-xl bg-[#0F1316] border border-[#8C701B]/50 text-[#E6D385] text-xs font-mono font-bold flex items-center justify-center shrink-0 shadow-inner">
+                  #{reviewModalItem.tokenNumber || '—'}
                 </span>
+                <div className="min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-white text-sm sm:text-base truncate">{reviewModalItem.patient.name}</span>
+                    <span className="font-mono text-[10px] text-[#E6D385] bg-[#C5A028]/15 border border-[#8C701B]/40 px-1.5 py-0.5 rounded font-bold shrink-0">
+                      {reviewModalItem.patient.id}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 block truncate">
+                    {reviewModalItem.patient.phone} • {reviewModalItem.patient.city} • Shift: {reviewModalItem.visit.shift}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setReviewModalItem(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0 ml-2"
+                title="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
-              {/* Patient Identity Strip */}
-              <div className="p-3.5 rounded-xl bg-[#1A2027] border border-slate-800 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-white text-sm">{reviewModalItem.patient.name}</span>
-                    <span className="font-mono text-[10px] text-[#E6D385] bg-[#C5A028]/15 border border-[#8C701B]/40 px-1.5 py-0.5 rounded font-bold">
-                      {reviewModalItem.patient.id}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block">
-                    {reviewModalItem.patient.phone} • {reviewModalItem.patient.city}
-                  </span>
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto overscroll-contain modal-scroll-body touch-pan-y px-4 py-4 space-y-4 text-xs sm:text-sm">
+              
+              {/* Status Toast Notification if WhatsApp resent */}
+              {resendStatus.message && (
+                <div className={`p-3 rounded-xl border text-xs font-semibold flex items-center space-x-2 ${
+                  resendStatus.state === 'error'
+                    ? 'bg-rose-950/60 border-rose-800/60 text-rose-300'
+                    : 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
+                }`}>
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>{resendStatus.message}</span>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block uppercase font-semibold">Shift</span>
-                  <span className="text-xs font-bold text-white font-brand">{reviewModalItem.visit.shift}</span>
-                </div>
-              </div>
+              )}
 
-              {/* Role-Based Segregation: Reception Intake Fee */}
+              {/* Appointment / Registration Fee Details */}
               <div className="p-3.5 rounded-xl bg-[#161B21] border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Reception Intake Registration Fee
+                  <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Registration / Appointment Fee
                   </span>
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded">
+                  <span className="text-[10px] sm:text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded">
                     Desk Collection
                   </span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xl font-bold font-mono text-white">
+                  <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                     ₹{reviewModalItem.visit.amount}
                   </span>
-                  <span className="text-xs text-[#E6D385] font-semibold">
-                    Payment Mode: {reviewModalItem.visit.mode}
+                  <span className="text-xs sm:text-sm text-[#E6D385] font-semibold">
+                    Payment Method: {reviewModalItem.visit.mode}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400">
-                  Follow-up fee rate (₹100) valid for 30 days from check-in date.
+                <p className="text-[10px] sm:text-xs text-slate-400">
+                  Follow-up fee rate (₹100) valid for 30 calendar days from check-in.
                 </p>
               </div>
 
               {/* Clinical Consultation Status & Summary */}
               <div className="p-3.5 rounded-xl bg-[#161B21] border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
                     Doctor Consultation Status
                   </span>
                   {reviewModalItem.rx ? (
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2.5 py-0.5 rounded-full flex items-center space-x-1">
-                      <CheckCircle2 className="w-3 h-3" />
+                    <span className="text-[10px] sm:text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2.5 py-0.5 rounded-full flex items-center space-x-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Completed by Dr. Baldawa</span>
                     </span>
                   ) : (
-                    <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2.5 py-0.5 rounded-full">
+                    <span className="text-[10px] sm:text-xs font-bold text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2.5 py-0.5 rounded-full">
                       ⏳ Pending Consultation (In Queue)
                     </span>
                   )}
                 </div>
 
                 {reviewModalItem.rx ? (
-                  <div className="space-y-2.5 pt-1 border-t border-slate-800">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Doctor Fee:</span>
+                  <div className="space-y-3 pt-1 border-t border-slate-800">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-slate-400">Doctor Consultation Fee:</span>
                       <span className="font-mono font-bold text-white">₹{reviewModalItem.rx.doctorFee}</span>
                     </div>
 
-                    {reviewModalItem.rx.procedureFeeTotal ? (
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400">In-Clinic Procedures Total:</span>
-                        <span className="font-mono font-bold text-emerald-400">₹{reviewModalItem.rx.procedureFeeTotal}</span>
-                      </div>
-                    ) : null}
-
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Next Follow-Up:</span>
-                      <span className="font-semibold text-white">
-                        {formatIndianDisplayDate(reviewModalItem.rx.nextFollowUpDate)} ({reviewModalItem.rx.followUpDays} Days)
-                      </span>
-                    </div>
-
-                    {reviewModalItem.rx.diagnosisNotes && (
-                      <div className="text-[11px] bg-[#1A2027] p-2.5 rounded-lg border border-slate-800">
-                        <strong className="text-slate-400 block mb-0.5">Doctor Notes / Diagnosis:</strong>
-                        <span className="text-slate-200">{reviewModalItem.rx.diagnosisNotes}</span>
-                      </div>
-                    )}
-
-                    {reviewModalItem.rx.medications && reviewModalItem.rx.medications.length > 0 && (
-                      <div>
-                        <strong className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                          Prescribed Medications ({reviewModalItem.rx.medications.length}) [Read-Only]
-                        </strong>
+                    {/* Read-Only Procedures List */}
+                    {reviewModalItem.rx.procedures && reviewModalItem.rx.procedures.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <strong className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            In-Clinic Procedures ({reviewModalItem.rx.procedures.length}) [Read-Only]
+                          </strong>
+                          <span className="text-xs sm:text-sm font-mono font-bold text-emerald-400">
+                            Total: ₹{reviewModalItem.rx.procedureFeeTotal || 0}
+                          </span>
+                        </div>
                         <div className="space-y-1">
-                          {reviewModalItem.rx.medications.map((m, idx) => (
-                            <div key={idx} className="p-2 rounded bg-[#1A2027] border border-slate-800/80 text-[11px] flex items-center justify-between">
-                              <span className="text-white font-medium">{idx + 1}. {m.name}</span>
-                              <span className="text-slate-400">{m.dosage} • {m.timing}</span>
+                          {reviewModalItem.rx.procedures.map((p, idx) => (
+                            <div key={idx} className="p-2.5 rounded-xl bg-[#1A2027] border border-slate-800 text-xs sm:text-sm flex items-center justify-between">
+                              <div className="min-w-0 pr-2">
+                                <span className="text-white font-bold block truncate">{p.name}</span>
+                                <span className="text-slate-400 text-[10px] sm:text-xs block truncate">
+                                  {p.category} {p.notes ? `• ${p.notes}` : ''}
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-2 py-0.5 rounded shrink-0">
+                                ₹{p.fee}
+                              </span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-slate-400">Expected Follow-Up:</span>
+                      <span className="font-semibold text-white">
+                        {formatIndianDisplayDate(reviewModalItem.rx.nextFollowUpDate)} ({reviewModalItem.rx.followUpDays} Days)
+                      </span>
+                    </div>
+
+                    {/* Task 2: Patient Privacy - Redacted Medications Chip */}
+                    {reviewModalItem.rx.medications && reviewModalItem.rx.medications.length > 0 && (
+                      <div className="p-3.5 rounded-xl bg-[#1A2027] border border-slate-800 space-y-1.5">
+                        <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs sm:text-sm">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span>✓ Prescription Form Completed by Dr. Baldawa ({reviewModalItem.rx.medications.length} Medicines Prescribed)</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 italic">
+                          Specific medicine names, dosages, timings, and formulations are strictly confidential patient health information and restricted from receptionist view.
+                        </p>
+                      </div>
+                    )}
+
                     {reviewModalItem.rx.paperRxPhoto && (
-                      <div className="text-[11px] text-emerald-400 font-semibold bg-emerald-950/30 p-2 rounded border border-emerald-900/40">
+                      <div className="text-xs text-emerald-400 font-semibold bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-900/40">
                         ✓ Handwritten paper Rx photo snapshot on file.
                       </div>
                     )}
 
-                    <div className="p-2 rounded bg-slate-900/60 border border-slate-800 text-[10px] text-slate-400 italic">
-                      ℹ Clinical prescriptions are strictly read-only for reception staff and cannot be modified at this desk.
+                    <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-[10px] text-slate-400 italic">
+                      ℹ Clinical prescriptions are confidential and read-only for reception staff.
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[11px] text-slate-400 italic">
+                  <p className="text-xs sm:text-sm text-slate-400 italic">
                     Patient has checked in and is awaiting consultation with Dr. Baldawa. Prescriptions will appear here once finalized.
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="p-3 sm:p-4 bg-[#161B21] border-t border-[#8C701B]/30 flex items-center justify-between gap-2 shrink-0">
+            {/* Modal Sticky Footer */}
+            <div className="shrink-0 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pb-4 bg-[#0F1316] border-t border-[#1E252B] flex flex-col sm:flex-row gap-2.5 z-10">
               <button
                 type="button"
                 onClick={() => setReviewModalItem(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer transition-colors flex items-center justify-center order-3 sm:order-1"
               >
                 Close
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setCompletedPatient(reviewModalItem.patient);
-                  setCompletedVisit(reviewModalItem.visit);
-                  setReviewModalItem(null);
-                }}
-                className="px-4 py-2 bg-[#C5A028] hover:bg-[#E6D385] text-black rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all shadow-md"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Reprint Registration Receipt</span>
-              </button>
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 flex-1 justify-end">
+                <button
+                  type="button"
+                  data-testid="btn-resend-whatsapp-receipt"
+                  onClick={() => handleResendWhatsAppReceipt(reviewModalItem.patient, reviewModalItem.visit)}
+                  disabled={resendStatus.state === 'sending'}
+                  className="w-full sm:w-auto min-h-[48px] px-4 py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all shadow-md disabled:opacity-60 order-1 sm:order-2"
+                  title="Resend WhatsApp Receipt"
+                >
+                  {resendStatus.state === 'sending' ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : resendStatus.state === 'sent' ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Sent ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-4 h-4" />
+                      <span>Resend WhatsApp Receipt</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="btn-print-receipt-modal"
+                  onClick={() => {
+                    setCompletedPatient(reviewModalItem.patient);
+                    setCompletedVisit(reviewModalItem.visit);
+                    setReviewModalItem(null);
+                  }}
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-[#C5A028] hover:bg-[#E6D385] text-black rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all shadow-md order-2 sm:order-3"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Receipt</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

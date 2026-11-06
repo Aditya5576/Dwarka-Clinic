@@ -8,8 +8,8 @@ import {
   QUICK_FOLLOW_UP_DAYS
 } from '../utils/clinicalUtils';
 import { getBase64SizeInKB } from '../utils/imageCompressor';
-import { buildPrescriptionWhatsAppText } from '../services/whatsappService';
-import { type ClinicalPrescription, type ClinicalProcedure } from '../types';
+import { buildPrescriptionWhatsAppText, buildFollowUpRecallWhatsAppText, buildReceiptWhatsAppText } from '../services/whatsappService';
+import { type ClinicalPrescription, type ClinicalProcedure, type PrescriptionItem, type FollowUpDefaulter } from '../types';
 import { MASTER_CLINIC_PROCEDURES } from '../data/clinicProcedures';
 import { fuzzyFilter, levenshteinDistance } from '../utils/fuzzySearch';
 import { DERMA_FORMULARY_MEDICATIONS, DERMA_FORMULARY_PROCEDURES } from '../data/dermaFormulary';
@@ -349,6 +349,244 @@ describe('Doctor Desk Clinical Engine (Milestone 2)', () => {
       const dateA = new Date('2026-10-28');
       const dateB = new Date('2026-11-04');
       expect(calculateElapsedDays(dateA, dateB)).toBe(7);
+    });
+  });
+
+  describe('9. Milestone 3: Follow-Up Defaulter Engine Logic', () => {
+    // Pure calculation logic mirroring getFollowUpDefaulters
+    function checkDefaulterStatus(
+      latestVisitDateStr: string,
+      expectedFollowUpDateStr: string,
+      referenceDateStr: string,
+      hasProcedures: boolean = false
+    ) {
+      const ref = new Date(referenceDateStr);
+      const expected = new Date(expectedFollowUpDateStr);
+      const latest = new Date(latestVisitDateStr);
+
+      const refOnly = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+      const expectedOnly = new Date(expected.getFullYear(), expected.getMonth(), expected.getDate());
+      const latestOnly = new Date(latest.getFullYear(), latest.getMonth(), latest.getDate());
+
+      const overdueDays = Math.round((refOnly.getTime() - expectedOnly.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Overdue between 1 and 30 days
+      if (overdueDays < 1 || overdueDays > 30) {
+        return { isDefaulter: false, overdueDays, reason: overdueDays < 1 ? 'Future/Today' : 'Expired > 30d' };
+      }
+
+      // If latest visit occurred on or after the expected follow-up date, patient already returned
+      if (latestOnly.getTime() >= expectedOnly.getTime()) {
+        return { isDefaulter: false, overdueDays, reason: 'Patient returned on/after follow-up date' };
+      }
+
+      return {
+        isDefaulter: true,
+        overdueDays,
+        isDueThisWeek: overdueDays <= 7,
+        isProcedureRecall: hasProcedures
+      };
+    }
+
+    it('identifies patients overdue by 1 to 30 days as active defaulters', () => {
+      const refDate = '2026-11-05';
+      const visitDate = '2026-10-15';
+      const expectedDate = '2026-11-01'; // 4 days overdue
+
+      const result = checkDefaulterStatus(visitDate, expectedDate, refDate);
+      expect(result.isDefaulter).toBe(true);
+      expect(result.overdueDays).toBe(4);
+      expect(result.isDueThisWeek).toBe(true);
+    });
+
+    it('classifies 1–7 days overdue as "Due This Week" prime recall category', () => {
+      const refDate = '2026-11-05';
+      const visitDate = '2026-10-20';
+      const expectedDate = '2026-11-03'; // 2 days overdue
+
+      const result = checkDefaulterStatus(visitDate, expectedDate, refDate);
+      expect(result.isDefaulter).toBe(true);
+      expect(result.overdueDays).toBe(2);
+      expect(result.isDueThisWeek).toBe(true);
+    });
+
+    it('classifies >7 days overdue as critical overdue category', () => {
+      const refDate = '2026-11-05';
+      const visitDate = '2026-10-10';
+      const expectedDate = '2026-10-25'; // 11 days overdue
+
+      const result = checkDefaulterStatus(visitDate, expectedDate, refDate);
+      expect(result.isDefaulter).toBe(true);
+      expect(result.overdueDays).toBe(11);
+      expect(result.isDueThisWeek).toBe(false);
+    });
+
+    it('excludes patients whose expected follow-up is in the future', () => {
+      const refDate = '2026-11-05';
+      const visitDate = '2026-11-02';
+      const expectedDate = '2026-11-12'; // 7 days in future
+
+      const result = checkDefaulterStatus(visitDate, expectedDate, refDate);
+      expect(result.isDefaulter).toBe(false);
+      expect(result.overdueDays).toBeLessThan(0);
+    });
+
+    it('excludes patients who returned and checked in on or after scheduled follow-up date', () => {
+      const refDate = '2026-11-05';
+      const expectedDate = '2026-11-01';
+      // Patient came back to clinic on 2026-11-02 (after the 2026-11-01 follow-up)
+      const latestVisitDate = '2026-11-02';
+
+      const result = checkDefaulterStatus(latestVisitDate, expectedDate, refDate);
+      expect(result.isDefaulter).toBe(false);
+      expect(result.reason).toContain('Patient returned');
+    });
+
+    it('correctly flags procedure recalls for patients with in-clinic procedures', () => {
+      const refDate = '2026-11-05';
+      const visitDate = '2026-10-20';
+      const expectedDate = '2026-11-02';
+
+      const result = checkDefaulterStatus(visitDate, expectedDate, refDate, true);
+      expect(result.isDefaulter).toBe(true);
+      expect(result.isProcedureRecall).toBe(true);
+    });
+  });
+
+  describe('10. Milestone 3: Prescription Cloning & Continuity Engine', () => {
+    const samplePriorMeds: PrescriptionItem[] = [
+      {
+        name: 'Itraconazole 100mg Capsule',
+        type: 'Capsule',
+        dosage: '100mg',
+        timing: 'Once daily after lunch',
+        duration: '15 Days'
+      },
+      {
+        name: 'Clindamycin Phosphate Gel',
+        type: 'Gel',
+        dosage: 'Pea-sized amount',
+        timing: 'Apply at night',
+        duration: '30 Days'
+      }
+    ];
+
+    it('deep clones medications array with brand new object references', () => {
+      const cloned = samplePriorMeds.map(m => ({ ...m }));
+
+      expect(cloned).not.toBe(samplePriorMeds);
+      expect(cloned[0]).not.toBe(samplePriorMeds[0]);
+      expect(cloned[1]).not.toBe(samplePriorMeds[1]);
+      expect(cloned).toEqual(samplePriorMeds);
+    });
+
+    it('mutations on cloned items do not affect the original historical prescription', () => {
+      const cloned = samplePriorMeds.map(m => ({ ...m }));
+      cloned[0].dosage = '200mg';
+      cloned[0].duration = '21 Days';
+
+      expect(samplePriorMeds[0].dosage).toBe('100mg');
+      expect(samplePriorMeds[0].duration).toBe('15 Days');
+      expect(cloned[0].dosage).toBe('200mg');
+    });
+
+    it('accurately identifies continued, discontinued, and newly added medications in comparison view', () => {
+      const priorMeds = [
+        { name: 'Itraconazole 100mg' },
+        { name: 'Clindamycin Gel' },
+        { name: 'Cetirizine 10mg' }
+      ];
+
+      const currentMeds = [
+        { name: 'Itraconazole 100mg' }, // Continued
+        { name: 'Isotretinoin 20mg' }    // Newly added
+      ];
+
+      // Check continued in prior
+      const continuedInPrior = priorMeds.filter(p =>
+        currentMeds.some(c => c.name.toLowerCase() === p.name.toLowerCase())
+      );
+      expect(continuedInPrior.map(m => m.name)).toEqual(['Itraconazole 100mg']);
+
+      // Check discontinued from prior
+      const discontinuedFromPrior = priorMeds.filter(p =>
+        !currentMeds.some(c => c.name.toLowerCase() === p.name.toLowerCase())
+      );
+      expect(discontinuedFromPrior.map(m => m.name)).toEqual(['Clindamycin Gel', 'Cetirizine 10mg']);
+
+      // Check newly added in current
+      const newlyAdded = currentMeds.filter(c =>
+        !priorMeds.some(p => p.name.toLowerCase() === c.name.toLowerCase())
+      );
+      expect(newlyAdded.map(m => m.name)).toEqual(['Isotretinoin 20mg']);
+    });
+  });
+
+  describe('11. Milestone 3: WhatsApp Follow-Up Recall Notice Builder', () => {
+    it('composes a polite clinical follow-up notice with patient details and clinic timing', () => {
+      const mockDefaulter: FollowUpDefaulter = {
+        patientId: 'DC-0001',
+        patientName: 'Ramesh Patil',
+        phone: '9822012345',
+        city: 'Jaysingpur',
+        lastVisitDate: '2026-10-15T10:00:00.000Z',
+        expectedFollowUpDate: '2026-10-30',
+        overdueDays: 6,
+        doctorNotes: 'Acne Vulgaris Grade II'
+      };
+
+      const message = buildFollowUpRecallWhatsAppText(mockDefaulter);
+
+      expect(message).toContain("Dr. Baldawa's Dwarka Clinic");
+      expect(message).toContain('Ramesh Patil');
+      expect(message).toContain('DC-0001');
+      expect(message).toContain('6 days ago');
+      expect(message).toContain('11:00 AM – 2:00 PM');
+      expect(message).toContain('5:00 PM – 8:30 PM');
+      expect(message).toContain('Dr. Sandeep Baldawa');
+    });
+
+    it('includes procedure note when patient had in-clinic procedure scheduled for recall', () => {
+      const mockProcedureDefaulter: FollowUpDefaulter = {
+        patientId: 'DC-0002',
+        patientName: 'Sunita Khot',
+        phone: '9822099999',
+        city: 'Purtiwadi',
+        lastVisitDate: '2026-10-18T11:00:00.000Z',
+        expectedFollowUpDate: '2026-11-01',
+        overdueDays: 4,
+        hasProcedures: true,
+        procedureNames: ['Salicylic Acid Peel (20%)']
+      };
+
+      const message = buildFollowUpRecallWhatsAppText(mockProcedureDefaulter);
+      expect(message).toContain('Sunita Khot');
+      expect(message).toContain('post-procedure clinical evaluation');
+    });
+  });
+
+  describe('12. Patient Intake Receipt WhatsApp Builder', () => {
+    it('composes a formatted receipt with patient details, amount, mode, and 30-day validity', () => {
+      const patient = {
+        id: 'DC-0001',
+        name: 'Ramesh Patil',
+        phone: '9822012345'
+      };
+      const visit = {
+        date: '2026-11-05T10:00:00.000Z',
+        shift: 'Morning',
+        amount: 200,
+        mode: 'Cash'
+      };
+
+      const text = buildReceiptWhatsAppText(patient, visit);
+      expect(text).toContain("Dr. Baldawa's Dwarka Clinic");
+      expect(text).toContain('PATIENT INTAKE RECEIPT');
+      expect(text).toContain('DC-0001');
+      expect(text).toContain('Ramesh Patil');
+      expect(text).toContain('₹200 (Cash)');
+      expect(text).toContain('Next Follow-Up Rate (₹100) Valid Until:');
+      expect(text).toContain('Next 30 Days');
     });
   });
 

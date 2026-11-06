@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   Printer,
   Share2,
-  ArrowRight,
   Calendar,
   CreditCard,
   Clock,
@@ -86,11 +85,11 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overscroll-contain overflow-hidden">
-      <div className="bg-[#12161A] w-[95vw] max-w-md max-h-[85vh] sm:max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border border-[#8C701B]/40 text-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center items-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-hidden">
+      <div className="bg-[#12161A] border border-[#2D3748] rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[88dvh] sm:max-h-[85dvh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200 text-slate-100">
 
-        {/* Modal Top Bar */}
-        <div className="bg-[#12161A] text-white px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between border-b border-[#8C701B]/30 shrink-0">
+        {/* Modal Header */}
+        <div className="shrink-0 p-4 border-b border-[#1E252B] flex items-center justify-between bg-[#12161A]">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <span className="font-bold text-xs sm:text-sm tracking-wide uppercase text-slate-200 font-brand">
@@ -99,14 +98,15 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/10 transition cursor-pointer"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Printable Receipt Body in Obsidian & Gold Theme */}
-        <div id="printable-receipt" className="p-4 sm:p-5 bg-[#12161A] text-slate-100 overflow-y-auto overscroll-contain flex-1 touch-pan-y space-y-3.5 break-words">
+        <div id="printable-receipt" className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3.5 text-xs sm:text-sm touch-pan-y break-words">
 
           {/* Clinic Brand Header */}
           <div className="text-center p-3.5 bg-[#171C21] border border-[#8C701B]/30 rounded-xl shadow-sm">
@@ -211,38 +211,35 @@ _Thank you for visiting Dr. Baldawa's Dwarka Clinic. Take care!_`;
 
         </div>
 
-        {/* Action Buttons */}
-        <div className="bg-[#12161A] p-3 sm:p-4 border-t border-[#8C701B]/30 space-y-2 shrink-0">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={handlePrint}
-              className="min-h-[44px] py-2.5 px-3 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap"
-            >
-              <Printer className="w-4 h-4 text-[#C5A028] shrink-0" />
-              <span>Print Slip</span>
-            </button>
-
-            <button
-              onClick={handleSendWhatsApp}
-              disabled={!normalizedPhone}
-              className={`min-h-[44px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1.5 shadow-md transition active:scale-95 whitespace-nowrap ${
-                normalizedPhone
-                  ? 'bg-[#059669] hover:bg-[#047857] text-white shadow-emerald-950/40 cursor-pointer'
-                  : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60'
-              }`}
-              title={normalizedPhone ? 'Share receipt via WhatsApp' : 'Valid 10-digit mobile number required'}
-            >
-              <Share2 className="w-4 h-4 shrink-0" />
-              <span>WhatsApp</span>
-            </button>
-          </div>
-
+        {/* Modal Sticky Footer */}
+        <div className="shrink-0 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:pb-4 bg-[#0F1316] border-t border-[#1E252B] flex flex-col sm:flex-row gap-2.5 z-10">
           <button
             onClick={onClose}
-            className="w-full min-h-[44px] py-2.5 bg-gradient-to-r from-[#C5A028] to-[#D4AF37] hover:brightness-110 text-[#12161A] font-bold rounded-xl text-sm flex items-center justify-center space-x-1.5 shadow-lg shadow-[#C5A028]/20 transition active:scale-95 cursor-pointer whitespace-nowrap"
+            className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer transition-colors flex items-center justify-center order-3 sm:order-1"
           >
-            <span>Next Check-In</span>
-            <ArrowRight className="w-4 h-4 text-[#12161A]" />
+            <span>Close</span>
+          </button>
+
+          <button
+            onClick={handlePrint}
+            className="w-full sm:flex-1 min-h-[48px] px-4 py-3 bg-[#1F262D] hover:bg-[#2A343D] text-[#E6D385] border border-[#8C701B]/50 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap order-1 sm:order-2"
+          >
+            <Printer className="w-4 h-4 text-[#C5A028] shrink-0" />
+            <span>Print Slip</span>
+          </button>
+
+          <button
+            onClick={handleSendWhatsApp}
+            disabled={!normalizedPhone}
+            className={`w-full sm:flex-1 min-h-[48px] px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center space-x-2 shadow-md transition active:scale-95 whitespace-nowrap order-2 sm:order-3 ${
+              normalizedPhone
+                ? 'bg-[#059669] hover:bg-[#047857] text-white shadow-emerald-950/40 cursor-pointer'
+                : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60'
+            }`}
+            title={normalizedPhone ? 'Share receipt via WhatsApp' : 'Valid 10-digit mobile number required'}
+          >
+            <Share2 className="w-4 h-4 shrink-0" />
+            <span>WhatsApp</span>
           </button>
         </div>
 

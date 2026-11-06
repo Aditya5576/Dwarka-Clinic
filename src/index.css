@@ -5,6 +5,7 @@
 @layer base {
   html, body, #root {
     height: 100%;
+    min-height: 100dvh;
     width: 100%;
     overflow: hidden;
     -webkit-overflow-scrolling: touch;
@@ -17,6 +18,18 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
+}
+
+/* Hide mobile bottom navigation and completely freeze background scrolling when any modal is open */
+html.modal-open,
+body.modal-open,
+body.modal-open #app-scroll-container {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
+body.modal-open .mobile-bottom-nav {
+  display: none !important;
 }
 
 /* Custom dark scrollbar for clinic portal */

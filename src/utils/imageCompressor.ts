@@ -41,6 +41,15 @@ export async function compressPaperRxImage(
 
       let { width, height } = img;
 
+      // Handle invalid or zero image dimensions
+      if (!width || !height || width <= 0 || height <= 0) {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(fileOrBlob);
+        return;
+      }
+
       // Scale down proportionally if larger than maximum dimension
       if (width > maxWidth || height > maxHeight) {
         const ratio = Math.min(maxWidth / width, maxHeight / height);
@@ -62,12 +71,23 @@ export async function compressPaperRxImage(
         return;
       }
 
+      // Pre-fill canvas with white background to prevent JPEG transparent channel converting to solid black
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
+
       // Draw high-quality resized image
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
       const compressedDataUrl = canvas.toDataURL(mimeType, quality);
+      if (!compressedDataUrl || compressedDataUrl.length < 100 || compressedDataUrl === 'data:,') {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(fileOrBlob);
+        return;
+      }
       resolve(compressedDataUrl);
     };
 

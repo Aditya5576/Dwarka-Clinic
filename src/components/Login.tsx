@@ -65,7 +65,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   return (
     <div 
-      className="h-screen w-screen overflow-hidden flex items-center justify-center p-3 sm:p-4 bg-[#0F1316] select-none"
+      className="h-screen w-screen overflow-hidden flex items-center justify-center p-3 sm:p-4 bg-[#0F1316]"
       style={{
         backgroundImage: 'radial-gradient(circle at 50% 30%, rgba(197, 160, 40, 0.12) 0%, rgba(15, 19, 22, 0.98) 60%, #0F1316 100%)'
       }}

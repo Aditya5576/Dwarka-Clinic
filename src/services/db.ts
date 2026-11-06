@@ -7,11 +7,13 @@ import {
   type PaymentMode,
   type ClinicalPrescription,
   type CustomMedication,
-  type ClinicalProcedure
+  type ClinicalProcedure,
+  type FollowUpDefaulter
 } from '../types';
 import { INDIAN_DERMA_MEDICATIONS } from '../data/indianMedications';
 import { CLINIC_MASTER_PROCEDURES } from '../data/clinicProcedures';
-export { getLocalDateKey } from '../utils/dateUtils';
+import { getTodayIST } from '../utils/dateUtils';
+export { getLocalDateKey, getTodayIST } from '../utils/dateUtils';
 export { formatWhatsAppNumber } from '../utils/phoneUtils';
 
 export class DwarkaClinicDB extends Dexie {
@@ -36,6 +38,13 @@ export class DwarkaClinicDB extends Dexie {
     this.version(4).stores({
       patients: 'id, phone, name, city, createdAt, lastVisitDate',
       visits: 'id, patientId, phone, date, shift, mode, amount',
+      prescriptions: 'id, visitId, patientId, consultationDate, nextFollowUpDate',
+      customMedications: '++id, name, type',
+      customProcedures: '++id, name, category',
+    });
+    this.version(5).stores({
+      patients: 'id, phone, name, city, createdAt, lastVisitDate, nextFollowUpDate',
+      visits: 'id, patientId, phone, date, shift, mode, amount, expectedFollowUpDate',
       prescriptions: 'id, visitId, patientId, consultationDate, nextFollowUpDate',
       customMedications: '++id, name, type',
       customProcedures: '++id, name, category',
@@ -352,12 +361,13 @@ export async function saveClinicalPrescription(prescription: ClinicalPrescriptio
     // 1. Save prescription
     await db.prescriptions.put(fullPrescription);
 
-    // 2. Update visit amount with doctorFee + procedure fees
+    // 2. Update visit amount with doctorFee + procedure fees and expectedFollowUpDate
     const visit = await db.visits.get(fullPrescription.visitId);
     if (visit) {
-      if (visit.amount !== totalBilled) {
-        await db.visits.update(visit.id, { amount: totalBilled });
-      }
+      await db.visits.update(visit.id, {
+        amount: totalBilled,
+        expectedFollowUpDate: fullPrescription.nextFollowUpDate
+      });
     }
 
     // 3. Update patient's lastVisitDate and custom nextFollowUpDate
@@ -444,6 +454,235 @@ export async function getAllMedicationCatalog(): Promise<CustomMedication[]> {
 }
 
 /**
+ * Task 1 (Milestone 3): Follow-Up Defaulter Query Engine
+ * 
+ * Retrieves patients whose latest visit had an expectedFollowUpDate that has passed
+ * (e.g., 1 to 30 days overdue) and who have not checked in since.
+ * 
+ * Returns: patientId, patientName, phone, city, lastVisitDate, expectedFollowUpDate,
+ * overdueDays, doctorNotes, hasProcedures, procedureNames, lastVisitAmount, lastVisitShift.
+ */
+export async function getFollowUpDefaulters(
+  referenceDate: string = getTodayIST(),
+  maxOverdueDays: number = 30
+): Promise<FollowUpDefaulter[]> {
+  const allPatients = await db.patients.toArray();
+  const allVisits = await db.visits.toArray();
+  const allPrescriptions = await db.prescriptions.toArray();
+
+  const visitsByPatient = new Map<string, Visit[]>();
+  for (const v of allVisits) {
+    const list = visitsByPatient.get(v.patientId) || [];
+    list.push(v);
+    visitsByPatient.set(v.patientId, list);
+  }
+
+  const rxByVisitId = new Map<string, ClinicalPrescription>();
+  for (const rx of allPrescriptions) {
+    if (rx.visitId) {
+      rxByVisitId.set(rx.visitId, rx);
+    }
+  }
+
+  const ref = new Date(referenceDate);
+  const refOnly = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+
+  const defaulters: FollowUpDefaulter[] = [];
+
+  for (const patient of allPatients) {
+    const patientVisits = visitsByPatient.get(patient.id) || [];
+    if (patientVisits.length === 0) continue;
+
+    // Find latest visit
+    patientVisits.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const latestVisit = patientVisits[0];
+
+    // Determine expected follow up date for this latest visit
+    const visitRx = rxByVisitId.get(latestVisit.id);
+    const expectedDateStr = latestVisit.expectedFollowUpDate
+      || visitRx?.nextFollowUpDate
+      || patient.nextFollowUpDate;
+
+    if (!expectedDateStr) continue;
+
+    const expectedDate = new Date(expectedDateStr);
+    if (isNaN(expectedDate.getTime())) continue;
+
+    const expectedDateOnly = new Date(expectedDate.getFullYear(), expectedDate.getMonth(), expectedDate.getDate());
+
+    // Calculate overdue calendar days
+    const overdueDays = Math.round((refOnly.getTime() - expectedDateOnly.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Must be at least 1 day overdue, and within maxOverdueDays
+    if (overdueDays >= 1 && overdueDays <= maxOverdueDays) {
+      const latestVisitDate = new Date(latestVisit.date);
+      const latestVisitDateOnly = new Date(latestVisitDate.getFullYear(), latestVisitDate.getMonth(), latestVisitDate.getDate());
+
+      // If latest visit occurred on or after the expected follow-up date, the patient already returned
+      if (latestVisitDateOnly.getTime() >= expectedDateOnly.getTime()) {
+        continue;
+      }
+
+      defaulters.push({
+        patientId: patient.id,
+        patientName: patient.name,
+        phone: patient.phone,
+        city: patient.city,
+        lastVisitDate: latestVisit.date,
+        expectedFollowUpDate: expectedDateStr,
+        overdueDays,
+        doctorNotes: visitRx?.diagnosisNotes,
+        hasProcedures: !!(visitRx?.procedures && visitRx.procedures.length > 0),
+        procedureNames: visitRx?.procedures?.map(p => p.name) || [],
+        lastVisitAmount: latestVisit.amount,
+        lastVisitShift: latestVisit.shift
+      });
+    }
+  }
+
+  // Sort by highest overdue days first (most overdue first)
+  defaulters.sort((a, b) => b.overdueDays - a.overdueDays);
+  return defaulters;
+}
+
+/**
+ * Helper to seed sample overdue patients for testing recall workflows
+ * Specifically for phone numbers 8208064879 and 7019905146.
+ */
+export async function seedSampleRecallPatients(): Promise<void> {
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  // Patient 1: Mahesh Patil (Test) - 8208064879
+  // Last Visit: 18 days ago (Morning Shift)
+  // Expected Follow-Up: 6 days ago (Status: Due This Week, 6 days overdue)
+  // Follow-up Interval: 7 Days (Chemical Peel Follow-up)
+  const p1VisitDate = new Date(now - 18 * dayMs).toISOString();
+  const p1ExpectedFollowUp = new Date(now - 6 * dayMs).toISOString().slice(0, 10);
+
+  const patient1: Patient = {
+    id: 'DC-8208',
+    name: 'Mahesh Patil (Test)',
+    phone: '8208064879',
+    city: 'Jaysingpur',
+    createdAt: p1VisitDate,
+    lastVisitDate: p1VisitDate,
+    nextFollowUpDate: p1ExpectedFollowUp
+  };
+
+  const visit1: Visit = {
+    id: 'VST-RECALL-8208',
+    patientId: 'DC-8208',
+    patientName: 'Mahesh Patil (Test)',
+    phone: '8208064879',
+    date: p1VisitDate,
+    shift: 'Morning',
+    amount: 200,
+    mode: 'Cash',
+    expectedFollowUpDate: p1ExpectedFollowUp
+  };
+
+  const rx1: ClinicalPrescription = {
+    id: 'RX-RECALL-8208',
+    visitId: 'VST-RECALL-8208',
+    patientId: 'DC-8208',
+    patientName: 'Mahesh Patil (Test)',
+    patientPhone: '8208064879',
+    patientCity: 'Jaysingpur',
+    consultationDate: p1VisitDate.slice(0, 10),
+    shift: 'Morning',
+    doctorFee: 200,
+    diagnosisNotes: 'Chemical Peel Follow-up',
+    medications: [
+      {
+        name: 'Clindamycin Gel (1%)',
+        type: 'Gel',
+        dosage: '1 Application',
+        timing: 'Morning',
+        duration: '15 Days'
+      }
+    ],
+    procedures: [
+      {
+        name: 'Salicylic Acid Peel (20%)',
+        category: 'Chemical Peel',
+        fee: 500,
+        notes: 'Session 1 completed'
+      }
+    ],
+    procedureFeeTotal: 500,
+    followUpDays: 7,
+    nextFollowUpDate: p1ExpectedFollowUp,
+    createdAt: p1VisitDate
+  };
+
+  // Patient 2: Sunil Sharma (Test) - 7019905146
+  // Last Visit: 35 days ago (Evening Shift)
+  // Expected Follow-Up: 20 days ago (Status: Overdue 20 days, >7d filter)
+  // Follow-up Interval: 15 Days (Acne Treatment Follow-up)
+  const p2VisitDate = new Date(now - 35 * dayMs).toISOString();
+  const p2ExpectedFollowUp = new Date(now - 20 * dayMs).toISOString().slice(0, 10);
+
+  const patient2: Patient = {
+    id: 'DC-7019',
+    name: 'Sunil Sharma (Test)',
+    phone: '7019905146',
+    city: 'Shirol',
+    createdAt: p2VisitDate,
+    lastVisitDate: p2VisitDate,
+    nextFollowUpDate: p2ExpectedFollowUp
+  };
+
+  const visit2: Visit = {
+    id: 'VST-RECALL-7019',
+    patientId: 'DC-7019',
+    patientName: 'Sunil Sharma (Test)',
+    phone: '7019905146',
+    date: p2VisitDate,
+    shift: 'Evening',
+    amount: 200,
+    mode: 'UPI',
+    expectedFollowUpDate: p2ExpectedFollowUp
+  };
+
+  const rx2: ClinicalPrescription = {
+    id: 'RX-RECALL-7019',
+    visitId: 'VST-RECALL-7019',
+    patientId: 'DC-7019',
+    patientName: 'Sunil Sharma (Test)',
+    patientPhone: '7019905146',
+    patientCity: 'Shirol',
+    consultationDate: p2VisitDate.slice(0, 10),
+    shift: 'Evening',
+    doctorFee: 200,
+    diagnosisNotes: 'Acne Treatment Follow-up',
+    medications: [
+      {
+        name: 'Doxycycline 100mg',
+        type: 'Capsule',
+        dosage: '1 Cap',
+        timing: 'After Food (Night)',
+        duration: '15 Days'
+      }
+    ],
+    procedures: [],
+    procedureFeeTotal: 0,
+    followUpDays: 15,
+    nextFollowUpDate: p2ExpectedFollowUp,
+    createdAt: p2VisitDate
+  };
+
+  await db.transaction('rw', db.patients, db.visits, db.prescriptions, async () => {
+    await db.patients.put(patient1);
+    await db.patients.put(patient2);
+    await db.visits.put(visit1);
+    await db.visits.put(visit2);
+    await db.prescriptions.put(rx1);
+    await db.prescriptions.put(rx2);
+  });
+}
+
+/**
  * Pre-seed 3 realistic test patients for immediate verification:
  * - DC-0001: 10 days ago (eligible for ₹100 follow-up)
  * - DC-0002: 27 days ago (due for reminder, eligible for ₹100)
@@ -524,4 +763,6 @@ export async function seedInitialDataIfNeeded(): Promise<void> {
     await db.patients.bulkAdd(seedPatients);
     await db.visits.bulkAdd(seedVisits);
   });
+
+  await seedSampleRecallPatients();
 }
